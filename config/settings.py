@@ -135,3 +135,8 @@ AUTH_USER_MODEL = 'account.User'
 # Set the media routes
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Set the backends for authentication
+AUTHENTICATION_BACKENDS = [
+    "account.backends.PhoneEmailAuthBackend",
+]
