@@ -35,7 +35,7 @@ class AuthenticationTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username="newuser").exists())
 
-    def test_log_in_with_phone(self):
+    def test_login_with_phone(self):
         payload = {
             "username": self.user.phone,
             "password": "useronepass"
@@ -47,3 +47,27 @@ class AuthenticationTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn('access', res.data)
         self.assertIn('refresh', res.data)
+
+    def test_logout(self):
+        """Test logging out using refresh token blacklisting"""
+        
+        # Log in to get the refresh token
+        payload = {
+            "username": self.user.phone,
+            "password": "useronepass"
+        }
+        login_res = self.client.post(reverse('login'), payload, 'json')
+        access_token = login_res.data.get('access')
+        refresh_token = login_res.data.get('refresh')
+
+        # Send the refresh token to logout endpoint
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        logout_res = self.client.post(
+            reverse('logout'), data={'refresh': refresh_token}, format='json')
+
+        self.assertEqual(logout_res.status_code, status.HTTP_205_RESET_CONTENT)
+        
+        # Try to use the same refresh token again (should be blacklisted)
+        refresh_res = self.client.post(
+            reverse('refresh'), data={'refresh': refresh_token}, format='json')
+        self.assertEqual(refresh_res.status_code, status.HTTP_401_UNAUTHORIZED)
