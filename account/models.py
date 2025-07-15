@@ -29,7 +29,7 @@ class Address(TimeStampedModel):
 
 
 class User(AbstractUser):
-    phone = models.CharField(max_length=16, db_index=True)
+    phone = models.CharField(max_length=16, unique=True, db_index=True)
     address = models.ForeignKey(
         to=Address, on_delete=models.SET_NULL, null=True, blank=True)
     is_seller = models.BooleanField(default=False, db_index=True)
