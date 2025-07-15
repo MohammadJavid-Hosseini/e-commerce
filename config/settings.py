@@ -141,3 +141,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 AUTHENTICATION_BACKENDS = [
     "account.backends.PhoneEmailAuthBackend",
 ]
+
+# Set the simplejwt stuff
+SIMPLE_JWT = {
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': True
+}
