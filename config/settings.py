@@ -131,3 +131,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Set the costumized user as user auth model
 AUTH_USER_MODEL = 'account.User'
+
+# Set the media routes
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
