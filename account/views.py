@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from account.serializers import UserSerializer
 
@@ -25,7 +25,7 @@ class LogoutAPIView(APIView):
             return Response(
                 {'detail': 'refresh token is required'},
                 status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
@@ -33,8 +33,7 @@ class LogoutAPIView(APIView):
                 {'detail': 'Successfully logged out.'},
                 status=status.HTTP_205_RESET_CONTENT
                 )                
-        except TokenError as e:
+        except TokenError:
             return Response(
                 {'detail': 'Invalid token.'},
                 status=status.HTTP_400_BAD_REQUEST)
-
