@@ -34,3 +34,8 @@ def get_otp(phone):
 def generate_otp(digits=6):
     """Generate a numeric OTP of given length"""
     return ''.join(str(random.randint(0, 9)) for i in range(digits))
+
+
+def delete_otp(phone):
+    """Delete otp form Redis"""
+    return redis_client.delete(f"otp:{phone}")

@@ -43,11 +43,47 @@ class AuthenticationTests(APITestCase):
         }
 
         res = self.client.post(
-            path=reverse('login'), data=payload, format='json')
+            path=reverse('jwtlogin'), data=payload, format='json')
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn('access', res.data)
         self.assertIn('refresh', res.data)
+
+    def test_logout(self):
+        """Test logging out using refresh token blacklisting"""
+
+        # Log in to get the refresh token
+        payload = {
+            "username": self.phone,
+            "password": "useronepass"
+        }
+        login_res = self.client.post(reverse('jwtlogin'), payload, 'json')
+        access_token = login_res.data.get('access')
+        refresh_token = login_res.data.get('refresh')
+
+        # Send the refresh token to logout endpoint
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        logout_res = self.client.post(
+            reverse('logout'), data={'refresh': refresh_token}, format='json')
+
+        self.assertEqual(logout_res.status_code, status.HTTP_205_RESET_CONTENT)
+
+        # Try to use the same refresh token again (should be blacklisted)
+        refresh_res = self.client.post(
+            reverse('refresh'), data={'refresh': refresh_token}, format='json')
+        self.assertEqual(
+            refresh_res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class OTPAuthenticationTests(APITestCase):
+    def setUp(self):
+        self.phone = "09023456789"
+        self.user = User.objects.create_user(
+            username="userone",
+            password="useronepass",
+            email="useremail@gmail.com",
+            phone=self.phone
+        )
 
     @patch("account.views.set_otp")
     def test_request_otp(self, mock_setex):
@@ -58,7 +94,7 @@ class AuthenticationTests(APITestCase):
         mock_setex.assert_called_once()
         self.assertIn('message', res.data)
 
-    @patch("account.views.get_otp", return_value=b"123456")
+    @patch("account.views.get_otp", return_value="123456")
     def test_otp_login_with_redis(self, mock_get):
         otp = "123456"
         url = reverse('login')
@@ -68,15 +104,14 @@ class AuthenticationTests(APITestCase):
         self.assertIn('access', response.data)
         self.assertIn('refresh', response.data)
 
-    def test_logout(self):
-        """Test logging out using refresh token blacklisting"""
+    @patch("account.views.get_otp", return_value="123456")
+    def test_otp_logout(self, mock_get):
+        """Test logging out using otp login"""
 
         # Log in to get the refresh token
-        payload = {
-            "username": self.phone,
-            "password": "useronepass"
-        }
-        login_res = self.client.post(reverse('login'), payload, 'json')
+        otp = "123456"
+        login_res = self.client.post(
+            reverse('login'), data={'phone': self.phone, 'otp': otp}, format='json')
         access_token = login_res.data.get('access')
         refresh_token = login_res.data.get('refresh')
 

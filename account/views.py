@@ -5,8 +5,9 @@ from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-from account.serializers import UserSerializer, PhoneSerializer
-from account.utils import generate_otp, set_otp
+from account.serializers import (
+    UserSerializer, PhoneSerializer, OTPLoginSerializer)
+from account.utils import generate_otp, set_otp, get_otp, delete_otp
 
 
 User = get_user_model()
@@ -37,6 +38,43 @@ class RequestOTPAPIView(APIView):
             )
 
 
+class OTPLoginAPIView(APIView):
+    """Login using otp code sent to user's phone"""
+    def post(self, request):
+        serializer = OTPLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        phone = serializer.validated_data['phone']
+        user_otp = serializer.validated_data['otp']
+        original_otp = get_otp(phone=phone)
+
+        # check if the code is correct
+        if (not original_otp) or (user_otp != original_otp):
+            return Response(
+                {"detail": "Invalid code."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # fetch the user from database
+        try:
+            user = User.objects.get(phone=phone)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found; You have not registered yet."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # delete the otp from redis
+        delete_otp(phone)
+
+        # generate the jwt token
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
+            },
+            status=status.HTTP_200_OK
+        )
+
+
 class LogoutAPIView(APIView):
 
     def post(self, request):
@@ -53,7 +91,7 @@ class LogoutAPIView(APIView):
             return Response(
                 {'detail': 'Successfully logged out.'},
                 status=status.HTTP_205_RESET_CONTENT
-                )                
+                )
         except TokenError:
             return Response(
                 {'detail': 'Invalid token.'},
