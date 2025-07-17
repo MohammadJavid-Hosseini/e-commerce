@@ -24,7 +24,7 @@ class AuthenticationTests(APITestCase):
         payload = {
             "username": "newuser",
             "password": "newpass9876",
-            "phone": self.phone,
+            "phone": "09123333333",
             "email": "newuser@gmail.com",
             "is_seller": True,
             "picture": image_file,

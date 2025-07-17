@@ -1,6 +1,7 @@
 import redis
-import settings
 import tempfile
+import random
+from config import settings
 from PIL import Image
 
 
@@ -28,3 +29,8 @@ def set_otp(phone, otp, ttl=3*60):
 def get_otp(phone):
     """Retrieves the OTP for a phone number from Redis"""
     return redis_client.get(f"otp:{phone}")
+
+
+def generate_otp(digits=6):
+    """Generate a numeric OTP of given length"""
+    return ''.join(str(random.randint(0, 9)) for i in range(digits))
