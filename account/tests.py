@@ -57,7 +57,8 @@ class AuthenticationTests(APITestCase):
             "username": self.phone,
             "password": "useronepass"
         }
-        login_res = self.client.post(reverse('jwtlogin'), payload, 'json')
+        login_res = self.client.post(
+            reverse('jwtlogin'), payload, format='json')
         access_token = login_res.data.get('access')
         refresh_token = login_res.data.get('refresh')
 
@@ -77,12 +78,21 @@ class AuthenticationTests(APITestCase):
 
 class OTPAuthenticationTests(APITestCase):
     def setUp(self):
-        self.phone = "09023456789"
-        self.user = User.objects.create_user(
-            username="userone",
-            password="useronepass",
-            email="useremail@gmail.com",
-            phone=self.phone
+        self.phone = "09331234567"
+
+    def create_user(self, phone=None, username='user1'):
+        return User.objects.create_user(
+            username=username,
+            password="userpass1",
+            email="user1@gmail.com",
+            phone=phone
+        )
+
+    def login_with_otp(self, otp='123456', phone=None):
+        url = reverse('login')
+        payload = {"phone": phone or self.phone, "otp": otp}
+        return self.client.post(
+            path=url, data=payload, format='json'
         )
 
     @patch("account.views.set_otp")
@@ -96,22 +106,38 @@ class OTPAuthenticationTests(APITestCase):
 
     @patch("account.views.get_otp", return_value="123456")
     def test_otp_login_with_redis(self, mock_get):
-        otp = "123456"
-        url = reverse('login')
-        response = self.client.post(
-            path=url, data={'phone': self.phone, 'otp': otp}, format='json')
+        self.create_user(phone=self.phone)
+        response = self.login_with_otp(phone=self.phone)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access', response.data)
         self.assertIn('refresh', response.data)
 
     @patch("account.views.get_otp", return_value="123456")
+    def test_login_with_wrong_otp(self, mock_get):
+        self.create_user(phone=self.phone)
+        res = self.login_with_otp(otp='000000', phone=self.phone)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], 'Invalid code')
+
+    @patch("account.views.get_otp", return_value=None)
+    def test_login_with_expired_otp(self, mock_get):
+        res = self.login_with_otp(phone=self.phone)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], 'Invalid code')
+
+    @patch("account.views.get_otp", return_value="123456")
+    def test_login_with_unregistered_phone(self, mock_get):
+        res = self.login_with_otp(phone="09999999999")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], 'User not found')
+
+    @patch("account.views.get_otp", return_value="123456")
     def test_otp_logout(self, mock_get):
         """Test logging out using otp login"""
-
+        self.create_user(phone=self.phone)
         # Log in to get the refresh token
-        otp = "123456"
-        login_res = self.client.post(
-            reverse('login'), data={'phone': self.phone, 'otp': otp}, format='json')
+        login_res = self.login_with_otp(phone=self.phone)
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
         access_token = login_res.data.get('access')
         refresh_token = login_res.data.get('refresh')
 

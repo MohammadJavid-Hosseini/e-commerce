@@ -50,7 +50,7 @@ class OTPLoginAPIView(APIView):
         # check if the code is correct
         if (not original_otp) or (user_otp != original_otp):
             return Response(
-                {"detail": "Invalid code."},
+                {"detail": "Invalid code"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -59,7 +59,7 @@ class OTPLoginAPIView(APIView):
             user = User.objects.get(phone=phone)
         except User.DoesNotExist:
             return Response(
-                {"detail": "User not found; You have not registered yet."},
+                {"detail": "User not found"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         # delete the otp from redis
