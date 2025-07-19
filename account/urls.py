@@ -5,7 +5,7 @@ from account import views
 
 
 urlpatterns = [
-    path('request_otp/', views.RequestOTPAPIView.as_view(), name='request_otp'),
+    path('get_otp/', views.RequestOTPAPIView.as_view(), name='get_otp'),
     path('register/', views.RegistrationAPIView.as_view(), name='register'),
     path('refresh/', TokenRefreshView.as_view(), name='refresh'),
     path('login/', views.OTPLoginAPIView.as_view(), name='login'),

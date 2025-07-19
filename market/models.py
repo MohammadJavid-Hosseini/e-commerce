@@ -87,7 +87,7 @@ class Product(TimeStampedModel):
         return self.name
 
 
-class Image(models.Model):
+class Image(TimeStampedModel):
     image = models.ImageField(upload_to='products/')
     product = models.ForeignKey(
         to=Product, on_delete=models.CASCADE, related_name='images')
@@ -129,6 +129,7 @@ class CartItem(TimeStampedModel):
         max_digits=10, decimal_places=2, default=0)
     total_item_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=0)
+    # computed fields
     # total_discount = models.DecimalField(max_digits=10, decimal_places=2)
     # total_price = models.DecimalField(max_digits=10, decimal_places=2)
 

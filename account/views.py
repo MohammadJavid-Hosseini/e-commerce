@@ -7,7 +7,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer)
-from account.utils import generate_otp, set_otp, get_otp, delete_otp
+from account.utils import (
+    generate_otp, set_otp, get_otp, delete_otp, send_sms_verification_code)
 
 
 User = get_user_model()
@@ -29,8 +30,11 @@ class RequestOTPAPIView(APIView):
         otp = generate_otp()
         set_otp(phone=phone, otp=otp)
 
-        # This must be replaced with an SMS service later
-        print(f"OTP {otp} sent to phone {phone}")
+        # A quick reach to otp (for test).
+        # print(f"OTP {otp} sent to phone {phone}")
+
+        # For production
+        send_sms_verification_code(code=otp, phone_number=phone)
 
         return Response(
             {"message": "The code sent to your phone."},
