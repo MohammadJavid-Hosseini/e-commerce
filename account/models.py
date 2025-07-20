@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.timezone import now
+from django.contrib.auth.models import UserManager
 
 
 class SoftDeleteQuerySet(models.QuerySet):
@@ -22,9 +23,25 @@ class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
         return super().get_queryset().filter(is_deleted=False)
 
 
+class SoftDeleteUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class SoftDeleteModel(models.Model):
+    # setting managers
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()
+
+    # fields
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
@@ -40,16 +57,12 @@ class TimeStampedModel(models.Model):
         abstract = True
 
 
-class SoftDeleteModel(models.Model):
-    objects = SoftDeleteManager()
-    all_objects = models.Manager()
-
-    class Meta:
-        abstract = True
-
-
 class User(AbstractUser, TimeStampedModel, SoftDeleteModel):
+    # setting the managers
+    objects = SoftDeleteUserManager()
+    all_objects = UserManager()
 
+    # other fileds of the model
     phone = models.CharField(max_length=16, unique=True, db_index=True)
     is_seller = models.BooleanField(default=False, db_index=True)
     picture = models.ImageField(upload_to="users/", null=True, blank=True)
