@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class PhoneEmailAuthBackend(ModelBackend):
     """Authentication using either email or phone instead of username."""
     def authenticate(self, request, username=None, password=None, **kwargs):
@@ -14,7 +15,7 @@ class PhoneEmailAuthBackend(ModelBackend):
             user = User.objects.get(Q(phone=username) | Q(email=username))
         except User.DoesNotExist:
             return None
-        
+
         if user.check_password(password):
             return user
         return None
