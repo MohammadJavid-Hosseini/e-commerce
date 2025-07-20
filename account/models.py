@@ -1,60 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.utils.timezone import now
 from django.contrib.auth.models import UserManager
-
-
-class SoftDeleteQuerySet(models.QuerySet):
-    def delete(self):
-        return super().update(is_deleted=True, deleted_at=now())
-
-    def hard_delete(self):
-        return super().delete()
-
-    def get_deleted_objects(self):
-        return super().filter(is_deleted=True)
-
-    def get_not_deleted_objects(self):
-        return super().filter(is_deleted=False)
-
-
-class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
-
-
-class SoftDeleteUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
-
-
-class TimeStampedModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
-
-
-class SoftDeleteModel(models.Model):
-    # setting managers
-    objects = SoftDeleteManager()
-    all_objects = models.Manager()
-
-    # fields
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-
-    def delete(self, using=None, keep_parents=False):
-        self.is_deleted = True
-        self.deleted_at = now()
-        self.save()
-
-    def hard_delete(self, using=None, keep_parents=False):
-        return super().delete(using=using, keep_parents=keep_parents)
-
-    class Meta:
-        abstract = True
+from base.models import (
+    TimeStampedModel, SoftDeleteModel, SoftDeleteUserManager)
 
 
 class User(AbstractUser, TimeStampedModel, SoftDeleteModel):
