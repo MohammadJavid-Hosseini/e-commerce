@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from account.models import Address, TimeStampedModel
+from base.models import TimeStampedModel, SoftDeleteModel
+from account.models import Address
 
 User = get_user_model()
 
@@ -45,7 +46,7 @@ PAYMENT_STATUS_CHOICES = [
 ]
 
 
-class Store(TimeStampedModel):
+class Store(TimeStampedModel, SoftDeleteModel):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     seller = models.ForeignKey(
@@ -56,7 +57,7 @@ class Store(TimeStampedModel):
         return self.name
 
 
-class Category(TimeStampedModel):
+class Category(TimeStampedModel, SoftDeleteModel):
     name = models.CharField(max_length=255)
     description = models.TextField()
     image = models.ImageField(upload_to='categories/', null=True, blank=True)
@@ -69,7 +70,7 @@ class Category(TimeStampedModel):
         return self.name
 
 
-class Product(TimeStampedModel):
+class Product(TimeStampedModel, SoftDeleteModel):
     name = models.CharField(max_length=255)
     description = models.TextField()
     category = models.ForeignKey(
@@ -87,13 +88,13 @@ class Product(TimeStampedModel):
         return self.name
 
 
-class Image(TimeStampedModel):
+class Image(TimeStampedModel, SoftDeleteModel):
     image = models.ImageField(upload_to='products/')
     product = models.ForeignKey(
         to=Product, on_delete=models.CASCADE, related_name='images')
 
 
-class StoreItem(TimeStampedModel):
+class StoreItem(TimeStampedModel, SoftDeleteModel):
     store = models.ForeignKey(
         to=Store, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(
@@ -111,7 +112,7 @@ class StoreItem(TimeStampedModel):
         return f"{self.product.name} - {self.store.name}"
 
 
-class Cart(TimeStampedModel):
+class Cart(TimeStampedModel, SoftDeleteModel):
     customer = models.ForeignKey(
         to=User, on_delete=models.CASCADE)
     total_price = models.DecimalField(
@@ -120,7 +121,7 @@ class Cart(TimeStampedModel):
         max_digits=10, decimal_places=2, default=0)
 
 
-class CartItem(TimeStampedModel):
+class CartItem(TimeStampedModel, SoftDeleteModel):
     cart = models.ForeignKey(
         to=Cart, on_delete=models.CASCADE, related_name='items')
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
@@ -134,7 +135,7 @@ class CartItem(TimeStampedModel):
     # total_price = models.DecimalField(max_digits=10, decimal_places=2)
 
 
-class Order(TimeStampedModel):
+class Order(TimeStampedModel, SoftDeleteModel):
     customer = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name='orders')
     address = models.ForeignKey(to=Address, on_delete=models.DO_NOTHING)
@@ -147,7 +148,7 @@ class Order(TimeStampedModel):
         return f"{self.customer.username} - order {self.id}"
 
 
-class OrderItem(TimeStampedModel):
+class OrderItem(TimeStampedModel, SoftDeleteModel):
     order = models.ForeignKey(
         to=Order, on_delete=models.CASCADE, related_name='items')
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
@@ -157,7 +158,7 @@ class OrderItem(TimeStampedModel):
         max_digits=10, decimal_places=2, default=0)
 
 
-class Payment(TimeStampedModel):
+class Payment(TimeStampedModel, SoftDeleteModel):
     order = models.ForeignKey(to=Order, on_delete=models.DO_NOTHING)
     status = models.CharField(
         max_length=15, choices=PAYMENT_STATUS_CHOICES,
@@ -169,7 +170,7 @@ class Payment(TimeStampedModel):
     fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
 
-class Review(TimeStampedModel):
+class Review(TimeStampedModel, SoftDeleteModel):
     user = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name='reviews')
     product = models.ForeignKey(
