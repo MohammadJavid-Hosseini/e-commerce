@@ -143,6 +143,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Set the backends for authentication
 AUTHENTICATION_BACKENDS = [
     "account.backends.PhoneEmailAuthBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 # Set the simplejwt stuff
