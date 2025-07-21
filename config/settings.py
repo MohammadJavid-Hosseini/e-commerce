@@ -39,6 +39,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'base',
+    'account',
+    'market',
 ]
 
 MIDDLEWARE = [
@@ -127,3 +132,34 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Set the costumized user as user auth model
+AUTH_USER_MODEL = 'account.User'
+
+# Set the media routes
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# Set the backends for authentication
+AUTHENTICATION_BACKENDS = [
+    "account.backends.PhoneEmailAuthBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Set the simplejwt stuff
+SIMPLE_JWT = {
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': True
+}
+
+# Redis settings
+REDIS_HOST = config('REDIS_HOST')
+REDIS_PORT = config('REDIS_PORT')
+
+# Setup redis for caching
+CACHES = {
+    'default': {
+        'BACKEND': "django_redis.cache.RedisCache",
+        'LOCATION': "redis://127.0.0.1:6379/1",
+        }
+    }
