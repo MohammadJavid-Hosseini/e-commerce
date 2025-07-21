@@ -154,3 +154,11 @@ SIMPLE_JWT = {
 # Redis settings
 REDIS_HOST = config('REDIS_HOST')
 REDIS_PORT = config('REDIS_PORT')
+
+# Setup redis for caching
+CACHES = {
+    'default': {
+        'BACKEND': "django_redis.cache.RedisCache",
+        'LOCATION': "redis://127.0.0.1:6379/1",
+        }
+    }
