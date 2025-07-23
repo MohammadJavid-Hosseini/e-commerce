@@ -1,9 +1,11 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from market.models import Store, StoreAddress
-from market.serializers import StoreSerializer, StoreAddressSerializer
-from market.permissions import IsStoreOwner, IsSellerOfAddress, IsSeller
+from market.models import Store, StoreAddress, Category
+from market.serializers import (
+    StoreSerializer, StoreAddressSerializer, CategorySerializer)
+from market.permissions import (
+    IsStoreOwner, IsSellerOfAddress, IsSeller, IsAdminOrReadOnly)
 
 
 class StoreViewSet(ModelViewSet):
@@ -39,3 +41,10 @@ class StoreAddressViewSet(ModelViewSet):
 
     def get_queryset(self):
         return StoreAddress.objects.filter(store__seller=self.request.user)
+
+
+class CategoryViewSet(ModelViewSet):
+    queryset = Category.objects.select_related('parent').all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = [JWTAuthentication]

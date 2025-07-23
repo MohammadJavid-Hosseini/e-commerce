@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from market.models import Store, StoreAddress
+from market.models import Store, StoreAddress, Category
 
 
 class StoreAddressSerializer(serializers.ModelSerializer):
@@ -13,6 +13,7 @@ class StoreAddressSerializer(serializers.ModelSerializer):
 class StoreSerializer(serializers.ModelSerializer):
     address = StoreAddressSerializer(read_only=True)
     # an alternative to overriding get_fields
+    # delete the comment later
     address_id = serializers.PrimaryKeyRelatedField(
         queryset=StoreAddress.objects.all(),
         source='address',
@@ -25,3 +26,19 @@ class StoreSerializer(serializers.ModelSerializer):
         model = Store
         fields = [
             'id', 'name', 'description', 'seller', 'address', 'address_id']
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    parent = serializers.StringRelatedField(read_only=True)
+    parent_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.select_related('parent').all(),
+        source='parent',
+        write_only=True,
+        required=False
+        )
+
+    class Meta:
+        model = Category
+        fields = [
+            'id', 'name', 'description',
+            'image', 'is_active', 'parent', 'parent_id']
