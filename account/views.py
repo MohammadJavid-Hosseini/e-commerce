@@ -1,16 +1,19 @@
 from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.serializers import (
-    UserSerializer, PhoneSerializer, OTPLoginSerializer)
+    UserSerializer, PhoneSerializer, OTPLoginSerializer,
+    AddressSerializer, MiniAddressSerializer)
 from account.utils import (
     generate_otp, set_otp, get_otp, delete_otp, send_sms_verification_code)
-
+from account.models import Address
+from account.permissions import IsAddressOwner
 
 User = get_user_model()
 
@@ -110,3 +113,25 @@ class CustomerProfileDetialAPIView(RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class AddressViewSet(ModelViewSet):
+    queryset = Address.objects.select_related('owner').all()
+    authentication_classes = [JWTAuthentication]
+
+    def get_queryset(self):
+        return Address.objects.filter(owner=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return MiniAddressSerializer
+        else:
+            return AddressSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAddressOwner()]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)

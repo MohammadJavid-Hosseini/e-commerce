@@ -148,7 +148,7 @@ AUTHENTICATION_BACKENDS = [
 
 # Set the simplejwt stuff
 SIMPLE_JWT = {
-    'BLACKLIST_AFTER_ROTATION': True,
+    # 'BLACKLIST_AFTER_ROTATION': True,
     'ROTATE_REFRESH_TOKENS': True
 }
 

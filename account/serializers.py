@@ -27,6 +27,8 @@ class AddressSerializer(serializers.ModelSerializer):
             'owner', 'label', 'address_line_1', 'address_line_2',
             'city', 'state', 'country', 'postal_code']
 
+        read_only_fields = ['owner']
+
 
 class MiniAddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -35,9 +37,21 @@ class MiniAddressSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    addresses = MiniAddressSerializer(many=True, read_only=True)
-
     class Meta:
         model = User
         fields = ['username', 'phone',
                   'email', 'picture', 'is_seller', 'addresses']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request', None)
+
+        if request.method == 'GET':
+            fields['addresses'] = MiniAddressSerializer(
+                many=True, read_only=True)
+        fields['addresses'] = serializers.PrimaryKeyRelatedField(
+            many=True,
+            queryset=Address.objects.all()
+            )
+
+        return fields
