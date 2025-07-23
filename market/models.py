@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from base.models import TimeStampedModel, SoftDeleteModel
-from account.models import Address
+from base.models import TimeStampedModel, SoftDeleteModel, BassAddressModel
+from account.models import UserAddress
+
 
 User = get_user_model()
 
@@ -46,12 +47,20 @@ PAYMENT_STATUS_CHOICES = [
 ]
 
 
+class StoreAddress(TimeStampedModel, SoftDeleteModel, BassAddressModel):
+
+    def __str__(self):
+        return f"{self.label} - {self.city}"
+
+
 class Store(TimeStampedModel, SoftDeleteModel):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     seller = models.ForeignKey(
         to=User, on_delete=models.RESTRICT, related_name='stores')
-    address = models.OneToOneField(to=Address, on_delete=models.RESTRICT)
+    address = models.OneToOneField(
+        to=StoreAddress, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='store')
 
     def __str__(self):
         return self.name
@@ -138,7 +147,7 @@ class CartItem(TimeStampedModel, SoftDeleteModel):
 class Order(TimeStampedModel, SoftDeleteModel):
     customer = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name='orders')
-    address = models.ForeignKey(to=Address, on_delete=models.DO_NOTHING)
+    address = models.ForeignKey(to=UserAddress, on_delete=models.DO_NOTHING)
     status = models.CharField(
         max_length=12, choices=STATUS_CHOICES, default=ORDER_STATUS_PENDING)
     total_price = models.DecimalField(

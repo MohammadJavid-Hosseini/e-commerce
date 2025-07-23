@@ -9,10 +9,10 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer,
-    AddressSerializer, MiniAddressSerializer)
+    UserAddressSerializer, MiniAddressSerializer)
 from account.utils import (
     generate_otp, set_otp, get_otp, delete_otp, send_sms_verification_code)
-from account.models import Address
+from account.models import UserAddress
 from account.permissions import IsAddressOwner
 
 User = get_user_model()
@@ -107,6 +107,7 @@ class LogoutAPIView(APIView):
 
 
 class CustomerProfileDetialAPIView(RetrieveUpdateAPIView):
+    queryset = User.objects.prefetch_related('addresses').all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
@@ -115,18 +116,18 @@ class CustomerProfileDetialAPIView(RetrieveUpdateAPIView):
         return self.request.user
 
 
-class AddressViewSet(ModelViewSet):
-    queryset = Address.objects.select_related('owner').all()
+class UserAddressViewSet(ModelViewSet):
+    queryset = UserAddress.objects.select_related('owner').all()
     authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
-        return Address.objects.filter(owner=self.request.user)
+        return UserAddress.objects.filter(owner=self.request.user)
 
     def get_serializer_class(self):
         if self.action == 'list':
             return MiniAddressSerializer
         else:
-            return AddressSerializer
+            return UserAddressSerializer
 
     def get_permissions(self):
         if self.request.method == 'POST':

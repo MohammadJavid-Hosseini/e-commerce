@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from account.models import Address
+from account.models import UserAddress
 
 
 User = get_user_model()
@@ -20,9 +20,9 @@ class OTPLoginSerializer(serializers.Serializer):
     otp = serializers.CharField(required=True)
 
 
-class AddressSerializer(serializers.ModelSerializer):
+class UserAddressSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Address
+        model = UserAddress
         fields = [
             'owner', 'label', 'address_line_1', 'address_line_2',
             'city', 'state', 'country', 'postal_code']
@@ -32,26 +32,14 @@ class AddressSerializer(serializers.ModelSerializer):
 
 class MiniAddressSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Address
+        model = UserAddress
         fields = ['label', 'city', 'postal_code']
 
 
 class UserSerializer(serializers.ModelSerializer):
+    addresses = serializers.StringRelatedField(many=True, read_only=True)
+
     class Meta:
         model = User
         fields = ['username', 'phone',
                   'email', 'picture', 'is_seller', 'addresses']
-
-    def get_fields(self):
-        fields = super().get_fields()
-        request = self.context.get('request', None)
-
-        if request.method == 'GET':
-            fields['addresses'] = MiniAddressSerializer(
-                many=True, read_only=True)
-        fields['addresses'] = serializers.PrimaryKeyRelatedField(
-            many=True,
-            queryset=Address.objects.all()
-            )
-
-        return fields

@@ -5,7 +5,7 @@ from account import views
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register('address', views.AddressViewSet, 'address')
+router.register('address', views.UserAddressViewSet, 'address')
 
 urlpatterns = [
     path('get_otp/', views.RequestOTPAPIView.as_view(), name='get_otp'),

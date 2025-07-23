@@ -2,7 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager
 from base.models import (
-    TimeStampedModel, SoftDeleteModel, SoftDeleteUserManager)
+    TimeStampedModel, SoftDeleteModel, SoftDeleteUserManager,
+    BassAddressModel)
 
 
 class User(AbstractUser, TimeStampedModel, SoftDeleteModel):
@@ -22,18 +23,11 @@ class User(AbstractUser, TimeStampedModel, SoftDeleteModel):
         ordering = ['created_at']
 
 
-class Address(TimeStampedModel, SoftDeleteModel):
+class UserAddress(TimeStampedModel, SoftDeleteModel, BassAddressModel):
 
     owner = models.ForeignKey(
         to=User, on_delete=models.CASCADE, related_name='addresses',
         default=None, null=True, blank=True)
-    label = models.CharField(max_length=255)
-    address_line_1 = models.TextField(max_length=500)
-    address_line_2 = models.TextField(max_length=500)
-    city = models.CharField(max_length=255, db_index=True)
-    state = models.CharField(max_length=255, db_index=True)
-    postal_code = models.CharField(max_length=11, db_index=True)
-    country = models.CharField(max_length=255, db_index=True)
 
     def __str__(self):
         return f"{self.label}, {self.address_line_1[:30]}"

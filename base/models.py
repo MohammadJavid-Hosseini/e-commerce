@@ -62,3 +62,16 @@ class SoftDeleteModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class BassAddressModel(models.Model):
+    label = models.CharField(max_length=255)
+    address_line_1 = models.TextField(max_length=500)
+    address_line_2 = models.TextField(max_length=500)
+    city = models.CharField(max_length=255, db_index=True)
+    state = models.CharField(max_length=255, db_index=True)
+    postal_code = models.CharField(max_length=11, db_index=True)
+    country = models.CharField(max_length=255, db_index=True)
+
+    class Meta:
+        abstract = True
