@@ -11,4 +11,7 @@ urlpatterns = [
     path('login/', views.OTPLoginAPIView.as_view(), name='login'),
     path('logout/', views.LogoutAPIView.as_view(), name='logout'),
     path('_jwt_login/', TokenObtainPairView.as_view(), name='jwtlogin'),
+    path(
+        'profile/', views.CustomerProfileDetialAPIView.as_view(),
+        name='customer-profile')
 ]

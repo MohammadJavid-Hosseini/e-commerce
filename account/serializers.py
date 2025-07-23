@@ -1,14 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from account.models import Address
+
 
 User = get_user_model()
-
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['username', 'password', 'phone',
-                  'email', 'picture', 'is_seller', 'addresses']
 
 
 class PhoneSerializer(serializers.Serializer):
@@ -23,3 +18,26 @@ class PhoneSerializer(serializers.Serializer):
 class OTPLoginSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=16, required=True)
     otp = serializers.CharField(required=True)
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            'owner', 'label', 'address_line_1', 'address_line_2',
+            'city', 'state', 'country', 'postal_code']
+
+
+class MiniAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = ['label', 'city', 'postal_code']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    addresses = MiniAddressSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'phone',
+                  'email', 'picture', 'is_seller', 'addresses']

@@ -2,9 +2,10 @@ from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework.generics import CreateAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer)
 from account.utils import (
@@ -100,3 +101,12 @@ class LogoutAPIView(APIView):
             return Response(
                 {'detail': 'Invalid token.'},
                 status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomerProfileDetialAPIView(RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_object(self):
+        return self.request.user

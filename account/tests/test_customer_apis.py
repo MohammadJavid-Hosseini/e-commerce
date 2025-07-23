@@ -29,10 +29,12 @@ class CustomerTests(APITestCase):
         self.assertEqual(
             res.data,
             {
-                'id': self.user.id,
                 'username': "userone",
-                'email': "useremail@gmail.com",
                 'phone': self.phone,
+                'email': "useremail@gmail.com",
+                'picture': None,
+                'is_seller': False,
+                'addresses': []
             }
         )
 
