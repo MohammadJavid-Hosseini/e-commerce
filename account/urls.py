@@ -15,7 +15,7 @@ urlpatterns = [
     path('logout/', views.LogoutAPIView.as_view(), name='logout'),
     path('_jwt_login/', TokenObtainPairView.as_view(), name='jwtlogin'),
     path(
-        'profile/', views.CustomerProfileDetialAPIView.as_view(),
+        'profile/', views.CustomerProfileDetailAPIView.as_view(),
         name='customer-profile')
 ]
 

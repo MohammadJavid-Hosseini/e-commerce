@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
@@ -7,6 +8,7 @@ from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.authentication import SessionAuthentication
 from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer,
     UserAddressSerializer, MiniAddressSerializer)
@@ -106,14 +108,33 @@ class LogoutAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST)
 
 
-class CustomerProfileDetialAPIView(RetrieveUpdateAPIView):
-    queryset = User.objects.prefetch_related('addresses').all()
+class CustomerProfileDetailAPIView(RetrieveUpdateAPIView):
+    queryset = User.objects.prefetch_related('addresses')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    # authentication_classes = [SessionAuthentication]
+
+    def retrieve(self, request, *args, **kwargs):
+        cache_key = f"profile-{self.request.user.id}"
+        cached_profile = cache.get(cache_key)
+
+        if cached_profile:
+            return Response(cached_profile)
+
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        cache.set(cache_key, data, timeout=60*60*24)
+        return Response(data)
 
     def get_object(self):
-        return self.request.user
+        return self.queryset.get(id=self.request.user.id)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        cache_key = f"profile-{self.request.user.id}"
+        cache.delete(cache_key)
 
 
 class UserAddressViewSet(ModelViewSet):
