@@ -12,7 +12,13 @@ from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer,
     UserAddressSerializer, MiniAddressSerializer)
 from account.utils import (
-    generate_otp, set_otp, get_otp, delete_otp, send_sms_verification_code)
+    generate_otp,
+    set_otp,
+    get_otp,
+    delete_otp,
+    send_sms_verification_code,
+    HitLimitMixin)
+
 from account.models import UserAddress
 from account.permissions import IsAddressOwner
 
@@ -25,7 +31,7 @@ class RegistrationAPIView(CreateAPIView):
     permission_classes = [AllowAny]
 
 
-class RequestOTPAPIView(APIView):
+class RequestOTPAPIView(APIView, HitLimitMixin):
 
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
@@ -34,6 +40,12 @@ class RequestOTPAPIView(APIView):
 
         otp = generate_otp()
         set_otp(phone=phone, otp=otp)
+
+        if self.hit_limit(method_name='send_sms_limit', time=15*60, max_hit=2):
+            return Response(
+                {"error": "error: Too much hit. Try again in 15 mins"},
+                status=status.HTTP_400_BAD_REQUEST
+                )
 
         # A quick reach to otp (for test).
         # print(f"OTP {otp} sent to phone {phone}")
@@ -118,6 +130,7 @@ class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
         return f"profile-{self.request.user.id}"
 
     def retrieve(self, request, *args, **kwargs):
+
         cached_profile = cache.get(self.cache_key)
 
         if cached_profile:

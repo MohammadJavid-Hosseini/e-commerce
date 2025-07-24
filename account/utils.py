@@ -57,3 +57,19 @@ def send_sms_verification_code(code: str, phone_number: str):
         print(f"APIException: {e}")
     except HTTPException as e:
         print(f"HTTPException: {e}")
+
+
+class HitLimitMixin:
+
+    def hit_limit(self, method_name, time, max_hit):
+        """Define times a user can hit an endpoint within a specific time"""
+        print(method_name)
+        current_count = redis_client.get(name=f"{method_name}-count")
+        if current_count is None:
+            current_count = 0
+        current_count = int(current_count) + 1
+        redis_client.setex(
+            name=f"{method_name}-count", time=time, value=current_count)
+        print(current_count, max_hit)
+        return current_count > max_hit
+
