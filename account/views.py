@@ -4,11 +4,10 @@ from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
+from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.authentication import SessionAuthentication
 from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer,
     UserAddressSerializer, MiniAddressSerializer)
@@ -108,16 +107,18 @@ class LogoutAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST)
 
 
-class CustomerProfileDetailAPIView(RetrieveUpdateAPIView):
+class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.prefetch_related('addresses')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    # authentication_classes = [SessionAuthentication]
+
+    @property
+    def cache_key(self):
+        return f"profile-{self.request.user.id}"
 
     def retrieve(self, request, *args, **kwargs):
-        cache_key = f"profile-{self.request.user.id}"
-        cached_profile = cache.get(cache_key)
+        cached_profile = cache.get(self.cache_key)
 
         if cached_profile:
             return Response(cached_profile)
@@ -125,7 +126,7 @@ class CustomerProfileDetailAPIView(RetrieveUpdateAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        cache.set(cache_key, data, timeout=60*60*24)
+        cache.set(self.cache_key, data, timeout=60*60*24)
         return Response(data)
 
     def get_object(self):
@@ -133,8 +134,11 @@ class CustomerProfileDetailAPIView(RetrieveUpdateAPIView):
 
     def perform_update(self, serializer):
         serializer.save()
-        cache_key = f"profile-{self.request.user.id}"
-        cache.delete(cache_key)
+        cache.delete(self.cache_key)
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        cache.delete(self.cache_key)
 
 
 class UserAddressViewSet(ModelViewSet):
