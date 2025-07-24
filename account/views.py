@@ -17,7 +17,7 @@ from account.utils import (
     get_otp,
     delete_otp,
     send_sms_verification_code,
-    HitLimitMixin)
+    )
 
 from account.models import UserAddress
 from account.permissions import IsAddressOwner
@@ -31,7 +31,8 @@ class RegistrationAPIView(CreateAPIView):
     permission_classes = [AllowAny]
 
 
-class RequestOTPAPIView(APIView, HitLimitMixin):
+class RequestOTPAPIView(APIView):
+    # permission_classes = [IsLimitedRequest]
 
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
@@ -40,12 +41,6 @@ class RequestOTPAPIView(APIView, HitLimitMixin):
 
         otp = generate_otp()
         set_otp(phone=phone, otp=otp)
-
-        if self.hit_limit(method_name='send_sms_limit', time=15*60, max_hit=2):
-            return Response(
-                {"error": "error: Too much hit. Try again in 15 mins"},
-                status=status.HTTP_400_BAD_REQUEST
-                )
 
         # A quick reach to otp (for test).
         # print(f"OTP {otp} sent to phone {phone}")
