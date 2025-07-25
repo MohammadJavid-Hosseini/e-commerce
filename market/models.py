@@ -2,6 +2,12 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from base.models import TimeStampedModel, SoftDeleteModel, BassAddressModel
 from account.models import UserAddress
+from market.services.product_service import (
+    calculate_average_rating,
+    calculate_best_price,
+    get_best_seller,
+    get_best_seller_user
+)
 
 
 User = get_user_model()
@@ -9,11 +15,11 @@ User = get_user_model()
 
 # Set the choices
 # Rating status
-RATING_5 = '5'
-RATING_4 = '4'
-RATING_3 = '3'
-RATING_2 = '2'
-RATING_1 = '1'
+RATING_5 = 5
+RATING_4 = 4
+RATING_3 = 3
+RATING_2 = 2
+RATING_1 = 1
 
 RATING_CHOICES = [
     (RATING_5, 'Excellent'), (RATING_4, 'Very good'),
@@ -47,25 +53,6 @@ PAYMENT_STATUS_CHOICES = [
 ]
 
 
-class StoreAddress(TimeStampedModel, SoftDeleteModel, BassAddressModel):
-
-    def __str__(self):
-        return f"{self.label} - {self.city}"
-
-
-class Store(TimeStampedModel, SoftDeleteModel):
-    name = models.CharField(max_length=255)
-    description = models.TextField(null=True, blank=True)
-    seller = models.ForeignKey(
-        to=User, on_delete=models.RESTRICT, related_name='stores')
-    address = models.OneToOneField(
-        to=StoreAddress, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='store')
-
-    def __str__(self):
-        return self.name
-
-
 class Category(TimeStampedModel, SoftDeleteModel):
     name = models.CharField(max_length=255)
     description = models.TextField()
@@ -85,22 +72,50 @@ class Product(TimeStampedModel, SoftDeleteModel):
     category = models.ForeignKey(
         to=Category, on_delete=models.SET_NULL, null=True,
         related_name='products')
-    rating = models.CharField(max_length=1, choices=RATING_CHOICES)
-    best_seller = models.ForeignKey(
-        to=User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='best_selling_products')
-    best_price = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
+
+    @property
+    def rating(self):
+        return calculate_average_rating(self)
+
+    @property
+    def best_price(self):
+        return calculate_best_price(self)
+
+    @property
+    def best_seller(self):
+        return get_best_seller(self)
+
+    @property
+    def best_seller_user(self):
+        return get_best_seller_user(self)
 
 
 class Image(TimeStampedModel, SoftDeleteModel):
     image = models.ImageField(upload_to='products/')
     product = models.ForeignKey(
         to=Product, on_delete=models.CASCADE, related_name='images')
+
+
+class StoreAddress(TimeStampedModel, SoftDeleteModel, BassAddressModel):
+    def __str__(self):
+        return f"{self.label} - {self.city}"
+
+
+class Store(TimeStampedModel, SoftDeleteModel):
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    seller = models.ForeignKey(
+        to=User, on_delete=models.RESTRICT, related_name='stores')
+    address = models.OneToOneField(
+        to=StoreAddress, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='store')
+
+    def __str__(self):
+        return self.name
 
 
 class StoreItem(TimeStampedModel, SoftDeleteModel):
@@ -184,8 +199,11 @@ class Review(TimeStampedModel, SoftDeleteModel):
         to=User, on_delete=models.CASCADE, related_name='reviews')
     product = models.ForeignKey(
         to=Product, on_delete=models.CASCADE, related_name='reviews')
-    rating = models.CharField(max_length=1, choices=RATING_CHOICES)
+    rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
     comment = models.TextField()
 
     def __str__(self):
         return f"{self.user}: {self.comment}"
+
+    class Meta:
+        unique_together = ['user', 'product']
