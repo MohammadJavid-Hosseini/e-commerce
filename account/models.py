@@ -1,15 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.contrib.auth.models import UserManager
+# from django.contrib.auth.models import UserManager
 from base.models import (
     TimeStampedModel, SoftDeleteModel, SoftDeleteUserManager,
+    AllUserObjectsManager,
     BassAddressModel)
 
 
 class User(AbstractUser, TimeStampedModel, SoftDeleteModel):
     # setting the managers
     objects = SoftDeleteUserManager()
-    all_objects = UserManager()
+    all_objects = AllUserObjectsManager()
 
     # other fileds of the model
     phone = models.CharField(max_length=16, unique=True, db_index=True)

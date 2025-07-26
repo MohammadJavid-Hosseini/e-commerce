@@ -12,6 +12,8 @@ class TimeStampedModel(models.Model):
 
 
 class SoftDeleteQuerySet(models.QuerySet):
+    """a queryset with necessary methods for soft deletion"""
+
     def delete(self):
         return self.update(is_deleted=True, deleted_at=now())
 
@@ -29,19 +31,38 @@ class SoftDeleteQuerySet(models.QuerySet):
 
 
 class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
+    """a manager excluding soft-deleted objects"""
+
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
+
+
+class AllObjectsManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
+    """a manager containing all objects including deleted ones"""
+
+    def get_queryset(self):
+        return super().get_queryset()
 
 
 class SoftDeleteUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
+    """a manager excluding soft-deleted users"""
+
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
 
 
+class AllUserObjectsManager(UserManager.from_queryset(SoftDeleteQuerySet)):
+    """a manager cantaining all users including deleted ones"""
+
+    def get_queryset(self):
+        return super().get_queryset()
+
+
 class SoftDeleteModel(models.Model):
+    """base model for applying deletion methods"""
     # setting managers
     objects = SoftDeleteManager()
-    all_objects = models.Manager()
+    all_objects = AllObjectsManager()
 
     # fields
     is_deleted = models.BooleanField(default=False)

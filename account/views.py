@@ -38,9 +38,12 @@ class RequestOTPAPIView(APIView):
         serializer = PhoneSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user = serializer.create_or_get_user()
+        # create the user if it is new
+        serializer.create_or_get_user()
+
         phone = serializer.validated_data['phone']
 
+        # set the OTP
         otp = generate_otp()
         set_otp(phone=phone, otp=otp)
 
