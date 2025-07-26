@@ -37,16 +37,18 @@ class RequestOTPAPIView(APIView):
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        user = serializer.create_or_get_user()
         phone = serializer.validated_data['phone']
 
         otp = generate_otp()
         set_otp(phone=phone, otp=otp)
 
         # A quick reach to otp (for test).
-        # print(f"OTP {otp} sent to phone {phone}")
+        print(f"OTP {otp} sent to phone {phone}")
 
         # For production
-        send_sms_verification_code(code=otp, phone_number=phone)
+        # send_sms_verification_code(code=otp, phone_number=phone)
 
         return Response(
             {"message": "The code sent to your phone."},

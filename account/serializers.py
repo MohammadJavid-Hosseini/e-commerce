@@ -14,6 +14,11 @@ class PhoneSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid Phone number.")
         return value
 
+    def create_or_get_user(self):
+        phone = self.validated_data.get('phone')
+        user, create = User.objects.get_or_create(phone=phone)
+        return user
+
 
 class OTPLoginSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=16, required=True)
