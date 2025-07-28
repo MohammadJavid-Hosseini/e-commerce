@@ -1,11 +1,13 @@
 from django.core.cache import cache
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from market.models import Store, StoreAddress, Category
 from market.serializers import (
     StoreSerializer, StoreAddressSerializer, CategorySerializer)
 from market.permissions import (
     IsStoreOwner, IsSellerOfAddress, IsSeller, IsAdminOrReadOnly)
+from market.services.mixins import AddActivateEndpointMixin
 
 
 class StoreViewSet(ModelViewSet):
@@ -40,7 +42,7 @@ class StoreAddressViewSet(ModelViewSet):
         return StoreAddress.objects.filter(store__seller=self.request.user)
 
 
-class CategoryViewSet(ModelViewSet):
+class CategoryViewSet(ModelViewSet, AddActivateEndpointMixin):
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -51,3 +53,12 @@ class CategoryViewSet(ModelViewSet):
             cache.set('categories', queryset)
             return queryset
         return cached_queryset
+
+    @action(
+        detail=True,
+        methods=['post'],
+        permission_classes=[IsAdminOrReadOnly]
+        )
+    def activate(self, requets, pk=None):
+        category = self.get_object()
+        return self.perform_activate(obj=category)
