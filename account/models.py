@@ -3,14 +3,14 @@ from django.contrib.auth.models import AbstractUser
 # from django.contrib.auth.models import UserManager
 from base.models import (
     TimeStampedModel, SoftDeleteModel, SoftDeleteUserManager,
-    AllUserObjectsManager,
+    AllUserManager,
     BassAddressModel)
 
 
 class User(AbstractUser, TimeStampedModel, SoftDeleteModel):
     # setting the managers
     objects = SoftDeleteUserManager()
-    all_objects = AllUserObjectsManager()
+    all_objects = AllUserManager()
 
     # other fileds of the model
     phone = models.CharField(max_length=16, unique=True, db_index=True)

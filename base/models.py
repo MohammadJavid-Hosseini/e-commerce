@@ -51,7 +51,7 @@ class SoftDeleteUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
         return super().get_queryset().filter(is_deleted=False)
 
 
-class AllUserObjectsManager(UserManager.from_queryset(SoftDeleteQuerySet)):
+class AllUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
     """a manager cantaining all users including deleted ones"""
 
     def get_queryset(self):

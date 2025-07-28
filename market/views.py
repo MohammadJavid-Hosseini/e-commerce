@@ -1,7 +1,6 @@
 from django.core.cache import cache
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from market.models import Store, StoreAddress, Category
 from market.serializers import (
     StoreSerializer, StoreAddressSerializer, CategorySerializer)
@@ -11,7 +10,6 @@ from market.permissions import (
 
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
-    authentication_classes = [JWTAuthentication]
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -36,7 +34,6 @@ class StoreViewSet(ModelViewSet):
 class StoreAddressViewSet(ModelViewSet):
     queryset = StoreAddress.objects.all()
     serializer_class = StoreAddressSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsSellerOfAddress]
 
     def get_queryset(self):
@@ -46,7 +43,6 @@ class StoreAddressViewSet(ModelViewSet):
 class CategoryViewSet(ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
-    authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
         cached_queryset = cache.get('categories')

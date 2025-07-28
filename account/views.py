@@ -7,7 +7,6 @@ from rest_framework.views import APIView
 from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.serializers import (
     UserSerializer, PhoneSerializer, OTPLoginSerializer,
     UserAddressSerializer, MiniAddressSerializer)
@@ -33,6 +32,7 @@ class RegistrationAPIView(CreateAPIView):
 
 class RequestOTPAPIView(APIView):
     # permission_classes = [IsLimitedRequest]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
@@ -61,6 +61,9 @@ class RequestOTPAPIView(APIView):
 
 class OTPLoginAPIView(APIView):
     """Login using otp code sent to user's phone"""
+
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = OTPLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -122,8 +125,7 @@ class LogoutAPIView(APIView):
 class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.prefetch_related('addresses')
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
+    # permission_classes = [IsAuthenticated]   # it had already set globally
 
     @property
     def cache_key(self):
@@ -156,7 +158,6 @@ class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
 
 class UserAddressViewSet(ModelViewSet):
     queryset = UserAddress.objects.select_related('owner').all()
-    authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
         return UserAddress.objects.filter(owner=self.request.user)
