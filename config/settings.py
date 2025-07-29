@@ -159,6 +159,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_FILTERING_BACKENDS': (
         'rest_framework.filters.OrderingFilter',
+    ),
+    'DEFAULT_PAGINATION_BACKENDS': (
+        'rest_framework.pagination.PageNumberPagination',
     )
 }
 

@@ -12,10 +12,12 @@ from market.services.mixins import (
     AddActivateEndpointMixin,
     CachableQuerySetMixin
 )
+from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 
 
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
+    pagination_class = SmallPaginatioinSettings
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -41,19 +43,26 @@ class StoreAddressViewSet(ModelViewSet):
     queryset = StoreAddress.objects.all()
     serializer_class = StoreAddressSerializer
     permission_classes = [IsAuthenticated, IsSellerOfAddress]
+    pagination_class = SmallPaginatioinSettings
 
     def get_queryset(self):
         return StoreAddress.objects.filter(store__seller=self.request.user)
 
 
-class CategoryViewSet (ModelViewSet, AddActivateEndpointMixin, CachableQuerySetMixin):
+class CategoryViewSet (ModelViewSet,
+                       AddActivateEndpointMixin,
+                       CachableQuerySetMixin):
+
     serializer_class = CategorySerializer
     permission_classes = [IsSellerOrReadOnly]
     filter_backends = [OrderingFilter]
     ordering_fields = ['name', 'id']
     ordering = ['name']
+    pagination_class = SmallPaginatioinSettings
 
     def get_queryset(self):
+        """cache and return the queryset, and limit non-admin access"""
+
         user = self.request.user
         base_qs = Category.objects.select_related('parent')
 
@@ -70,6 +79,8 @@ class CategoryViewSet (ModelViewSet, AddActivateEndpointMixin, CachableQuerySetM
         permission_classes=[IsAdminUser]
         )
     def activate(self, request, pk=None):
+        """turn is_active attribute into True using custom action"""
+
         category = self.get_object()
         response = self.perform_activate(obj=category)
 
@@ -78,11 +89,15 @@ class CategoryViewSet (ModelViewSet, AddActivateEndpointMixin, CachableQuerySetM
         return response
 
 
-class ProductViewSet(ModelViewSet, AddActivateEndpointMixin, CachableQuerySetMixin):
+class ProductViewSet(ModelViewSet,
+                     AddActivateEndpointMixin,
+                     CachableQuerySetMixin):
+
     permission_classes = [IsSellerOrReadOnly]
     filter_backends = [OrderingFilter]
     ordering_fields = ['name', 'id']
     ordering = ['id']
+    pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
         base_qs = Product.objects.select_related('category')
@@ -94,12 +109,16 @@ class ProductViewSet(ModelViewSet, AddActivateEndpointMixin, CachableQuerySetMix
             )
 
     def get_serializer_class(self):
+        """use a minimal serializer for list"""
+
         if self.action == 'list':
             return ProductListSerializer
         return ProductDetailSerializer
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def activate(self, request, pk=None):
+        """turn is_active attribute into True using custom action"""
+
         product = self.get_object()
         response = self.perform_activate(obj=product)
 
