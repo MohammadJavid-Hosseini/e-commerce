@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from market.models import Store, StoreAddress, Category, Product
+from market.models import Store, StoreAddress, Category, Product, StoreItem
+from market.services.mixins import RepresentAsStringMixin
 
 
 class StoreAddressSerializer(serializers.ModelSerializer):
@@ -79,3 +80,20 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'category']
 
         ordering = ['name']
+
+
+class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
+
+    def get_fields(self):
+        fields = super().get_fields()
+        self.to_string(fields, 'store')
+        self.to_string(fields, 'product')
+        return fields
+
+    class Meta:
+        model = StoreItem
+        fields = [
+            'id', 'store', 'product', 'price',
+            'discount_price', 'stock', 'is_active']
+
+    read_only_fields = ['is_active']

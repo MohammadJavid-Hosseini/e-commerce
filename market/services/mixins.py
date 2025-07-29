@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework import serializers
 from django.db.models import QuerySet
 from django.core.cache import cache
 
@@ -33,3 +34,12 @@ class CachableQuerySetMixin:
     def clean_cached_qs(self, *keys):
         for key in keys:
             cache.delete(key)
+
+
+class RepresentAsStringMixin():
+    def to_string(self, fields=None, field_name=None, many=False):
+        request = self.context.get('request')
+        if request.method == 'GET':
+            fields[field_name] = serializers.StringRelatedField(
+                many=many, read_only=True)
+        return fields

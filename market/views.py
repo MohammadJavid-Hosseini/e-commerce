@@ -2,10 +2,16 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
-from market.models import Store, StoreAddress, Category, Product
+from rest_framework.views import APIView
+from market.models import Store, StoreAddress, Category, Product, StoreItem
 from market.serializers import (
-    StoreSerializer, StoreAddressSerializer, CategorySerializer,
-    ProductListSerializer, ProductDetailSerializer)
+    StoreSerializer,
+    StoreAddressSerializer,
+    CategorySerializer,
+    ProductListSerializer,
+    ProductDetailSerializer,
+    StoreItemSerializer
+    )
 from market.permissions import (
     IsStoreOwner, IsSellerOfAddress, IsSeller, IsSellerOrReadOnly)
 from market.services.mixins import (
@@ -125,3 +131,42 @@ class ProductViewSet(ModelViewSet,
         self.clean_cached_qs('products', 'active_products')
 
         return response
+
+
+class StoreItemViewSet(ModelViewSet,
+                       AddActivateEndpointMixin,
+                       CachableQuerySetMixin):
+
+    serializer_class = StoreItemSerializer
+    permission_classes = [IsAuthenticated, IsSeller]
+    filter_backends = [OrderingFilter]
+    ordering_fields = ['product', 'price', 'discount_price', 'stock']
+    ordering = ['-price']
+
+    def get_queryset(self):
+        qs = StoreItem.objects.select_related('store', 'product')
+        user = self.request.user
+        if user.is_staff:
+            return self.get_cached_queryset('all_items', qs.all())
+        return self.get_cached_queryset(
+            'this_store_items',
+            qs.filter(store__seller=user)
+            )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def activate(self, request, pk=None):
+        store_item = self.get_object()
+        response = self.perform_activate(store_item)
+
+        self.clean_cached_qs('all_items', 'this_store_items')
+
+        return response
+
+
+# class SellerDashBoardAPIView(APIView):
+#     """Indicate seller-related stores, categories, and products"""
+
+#     def get(self, request):
+#         user = request.user
+#         stores = Store.objects.filter(seller=user).count()
+#         categories = Category.objects.filter(products__)
