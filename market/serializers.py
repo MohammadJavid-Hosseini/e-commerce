@@ -42,7 +42,7 @@ class RecursiveCategorySerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    parent = serializers.StringRelatedField(read_only=True)
+    parent = RecursiveCategorySerializer(read_only=True)
     parent_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.select_related('parent').all(),
         source='parent',

@@ -1,5 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
+from django.db.models import QuerySet
+from django.core.cache import cache
 
 
 class AddActivateEndpointMixin:
@@ -18,3 +20,16 @@ class AddActivateEndpointMixin:
             {'detail': 'It is activated'},
             status=status.HTTP_200_OK
         )
+
+
+class CachableQuerySetMixin:
+    def get_cached_queryset(self, key: str, qs: QuerySet, timeout=300):
+        cached_qs = cache.get(key)
+        if cached_qs:
+            return cached_qs
+        cache.set(key, qs, timeout=timeout)
+        return qs
+
+    def clean_cached_qs(self, *keys):
+        for key in keys:
+            cache.delete(key)
