@@ -28,6 +28,19 @@ class StoreSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'seller', 'address', 'address_id']
 
 
+class RecursiveCategorySerializer(serializers.ModelSerializer):
+    parent = serializers.SerializerMethodField(method_name='get_parent')
+
+    class Meta:
+        model = Category
+        fields = ['name', 'parent']
+
+    def get_parent(self, obj):
+        if obj.parent:
+            return RecursiveCategorySerializer(obj.parent).data
+        return None
+
+
 class CategorySerializer(serializers.ModelSerializer):
     parent = serializers.StringRelatedField(read_only=True)
     parent_id = serializers.PrimaryKeyRelatedField(
@@ -44,7 +57,9 @@ class CategorySerializer(serializers.ModelSerializer):
             'image', 'is_active', 'parent', 'parent_id']
 
 
-class ProductSerializer(serializers.ModelSerializer):
+class ProductDetailSerializer(serializers.ModelSerializer):
+    category = RecursiveCategorySerializer(read_only=True)
+
     class Meta:
         model = Product
         fields = [
@@ -54,3 +69,13 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'is_active', 'rating', 'best_seller', 'best_price'
         ]
+
+
+class ProductListSerializer(serializers.ModelSerializer):
+    category = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'category']
+
+        ordering = ['name']

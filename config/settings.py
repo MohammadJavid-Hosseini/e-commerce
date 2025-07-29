@@ -156,6 +156,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_FILTERING_BACKENDS': (
+        'rest_framework.filters.OrderingFilter',
     )
 }
 
