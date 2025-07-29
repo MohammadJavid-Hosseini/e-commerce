@@ -34,7 +34,7 @@ def get_best_seller(product):
     cheapest_item = annotated_queryset.order_by(
         'discounted_price').select_related('store').first()
 
-    return cheapest_item.store if cheapest_item else None
+    return cheapest_item.store.name if cheapest_item else None
 
 
 def get_best_seller_user(product):

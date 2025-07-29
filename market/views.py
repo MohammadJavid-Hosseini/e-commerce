@@ -1,12 +1,13 @@
 from django.core.cache import cache
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
-from market.models import Store, StoreAddress, Category
+from market.models import Store, StoreAddress, Category, Product
 from market.serializers import (
-    StoreSerializer, StoreAddressSerializer, CategorySerializer)
+    StoreSerializer, StoreAddressSerializer, CategorySerializer,
+    ProductSerializer)
 from market.permissions import (
-    IsStoreOwner, IsSellerOfAddress, IsSeller, IsAdminOrReadOnly)
+    IsStoreOwner, IsSellerOfAddress, IsSeller, IsSellerOrReadOnly)
 from market.services.mixins import AddActivateEndpointMixin
 
 
@@ -15,7 +16,7 @@ class StoreViewSet(ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]
+            return [AllowAny()]
         elif self.action == 'create':
             return [IsAuthenticated(), IsSeller()]
         else:
@@ -44,7 +45,7 @@ class StoreAddressViewSet(ModelViewSet):
 
 class CategoryViewSet(ModelViewSet, AddActivateEndpointMixin):
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsSellerOrReadOnly]
 
     def get_queryset(self):
         cached_queryset = cache.get('categories')
@@ -57,8 +58,23 @@ class CategoryViewSet(ModelViewSet, AddActivateEndpointMixin):
     @action(
         detail=True,
         methods=['post'],
-        permission_classes=[IsAdminOrReadOnly]
+        permission_classes=[IsAdminUser]
         )
     def activate(self, requets, pk=None):
         category = self.get_object()
         return self.perform_activate(obj=category)
+
+
+class ProductViewSet(ModelViewSet, AddActivateEndpointMixin):
+    serializer_class = ProductSerializer
+    permission_classes = [IsSellerOrReadOnly]
+
+    def get_queryset(self):
+        if not self.request.user.is_staff:
+            return Product.objects.select_related('category').filter(is_active=True)
+        return Product.objects.select_related('category').all()
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def activate(self, request, pk=None):
+        product = self.get_object()
+        return self.perform_activate(obj=product)

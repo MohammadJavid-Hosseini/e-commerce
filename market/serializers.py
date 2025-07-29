@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from market.models import Store, StoreAddress, Category
+from market.models import Store, StoreAddress, Category, Product
 
 
 class StoreAddressSerializer(serializers.ModelSerializer):
@@ -42,3 +42,15 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description',
             'image', 'is_active', 'parent', 'parent_id']
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'description', 'category', 'is_active',
+            'rating', 'best_seller', 'best_price'
+        ]
+        read_only_fields = [
+            'is_active', 'rating', 'best_seller', 'best_price'
+        ]

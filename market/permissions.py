@@ -22,6 +22,14 @@ class IsSeller(BasePermission):
         return request.user.is_seller is True
 
 
+class IsSellerOrReadOnly(BasePermission):
+    """Only sellers access not-saved methods"""
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        return request.user.is_authenticated and request.user.is_seller
+
+
 class IsAdminOrReadOnly(BasePermission):
     # an alternative to using IsAdminUser and overriding get_permissions
     # delete the comment later
