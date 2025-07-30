@@ -1,14 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from account.models import UserAddress
+
 
 User = get_user_model()
-
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['username', 'password', 'phone',
-                  'email', 'picture', 'is_seller', 'address']
 
 
 class PhoneSerializer(serializers.Serializer):
@@ -19,7 +14,37 @@ class PhoneSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid Phone number.")
         return value
 
+    def create_or_get_user(self):
+        phone = self.validated_data.get('phone')
+        user, create = User.objects.get_or_create(phone=phone)
+        return user
+
 
 class OTPLoginSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=16, required=True)
     otp = serializers.CharField(required=True)
+
+
+class UserAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAddress
+        fields = [
+            'owner', 'label', 'address_line_1', 'address_line_2',
+            'city', 'state', 'country', 'postal_code']
+
+        read_only_fields = ['owner']
+
+
+class MiniAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAddress
+        fields = ['label', 'city', 'postal_code']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    addresses = serializers.StringRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'phone',
+                  'email', 'picture', 'is_seller', 'addresses', 'is_staff']

@@ -1,15 +1,25 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from rest_framework import status
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
-from rest_framework.generics import CreateAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from account.serializers import (
-    UserSerializer, PhoneSerializer, OTPLoginSerializer)
+    UserSerializer, PhoneSerializer, OTPLoginSerializer,
+    UserAddressSerializer, MiniAddressSerializer)
 from account.utils import (
-    generate_otp, set_otp, get_otp, delete_otp, send_sms_verification_code)
+    generate_otp,
+    set_otp,
+    get_otp,
+    delete_otp,
+    send_sms_verification_code,
+    )
 
+from account.models import UserAddress
+from account.permissions import IsAddressOwner
 
 User = get_user_model()
 
@@ -21,20 +31,27 @@ class RegistrationAPIView(CreateAPIView):
 
 
 class RequestOTPAPIView(APIView):
+    # permission_classes = [IsLimitedRequest]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # create the user if it is new
+        serializer.create_or_get_user()
+
         phone = serializer.validated_data['phone']
 
+        # set the OTP
         otp = generate_otp()
         set_otp(phone=phone, otp=otp)
 
         # A quick reach to otp (for test).
-        # print(f"OTP {otp} sent to phone {phone}")
+        print(f"OTP {otp} sent to phone {phone}")
 
         # For production
-        send_sms_verification_code(code=otp, phone_number=phone)
+        # send_sms_verification_code(code=otp, phone_number=phone)
 
         return Response(
             {"message": "The code sent to your phone."},
@@ -44,6 +61,9 @@ class RequestOTPAPIView(APIView):
 
 class OTPLoginAPIView(APIView):
     """Login using otp code sent to user's phone"""
+
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = OTPLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -100,3 +120,58 @@ class LogoutAPIView(APIView):
             return Response(
                 {'detail': 'Invalid token.'},
                 status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.prefetch_related('addresses')
+    serializer_class = UserSerializer
+    # permission_classes = [IsAuthenticated]   # it had already set globally
+
+    @property
+    def cache_key(self):
+        return f"profile-{self.request.user.id}"
+
+    def retrieve(self, request, *args, **kwargs):
+
+        cached_profile = cache.get(self.cache_key)
+
+        if cached_profile:
+            return Response(cached_profile)
+
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        cache.set(self.cache_key, data, timeout=60*60*24)
+        return Response(data)
+
+    def get_object(self):
+        return self.queryset.get(id=self.request.user.id)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        cache.delete(self.cache_key)
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        cache.delete(self.cache_key)
+
+
+class UserAddressViewSet(ModelViewSet):
+    queryset = UserAddress.objects.select_related('owner').all()
+
+    def get_queryset(self):
+        return UserAddress.objects.filter(owner=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return MiniAddressSerializer
+        else:
+            return UserAddressSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAddressOwner()]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)

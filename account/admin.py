@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from account.models import Address
+from account.models import UserAddress
 
 User = get_user_model()
 
@@ -14,7 +14,7 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ['is_seller']
 
 
-@admin.register(Address)
-class Address(admin.ModelAdmin):
+@admin.register(UserAddress)
+class UserAddress(admin.ModelAdmin):
     list_display = ['label', 'country', 'state', 'city']
     search_fields = ['label', 'country', 'state', 'city']

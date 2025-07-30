@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from decouple import config
+from datetime import timedelta
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -38,15 +40,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'debug_toolbar',
     'base',
     'account',
     'market',
 ]
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -146,10 +151,28 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_FILTERING_BACKENDS': (
+        'rest_framework.filters.OrderingFilter',
+    ),
+    'DEFAULT_PAGINATION_BACKENDS': (
+        'rest_framework.pagination.PageNumberPagination',
+    )
+}
+
 # Set the simplejwt stuff
+# set it production-type later
+
 SIMPLE_JWT = {
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ROTATE_REFRESH_TOKENS': True
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    # 'BLACKLIST_AFTER_ROTATION': True,
+    # 'ROTATE_REFRESH_TOKENS': True
 }
 
 # Redis settings
@@ -163,3 +186,7 @@ CACHES = {
         'LOCATION': "redis://127.0.0.1:6379/1",
         }
     }
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
