@@ -1,11 +1,13 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 from market.views import (
     StoreViewSet,
     StoreAddressViewSet,
     CategoryViewSet,
     ProductViewSet,
-    StoreItemViewSet)
-
+    StoreItemViewSet,
+    SellerDashBoardAPIView
+    )
 
 router = DefaultRouter()
 router.register('store', StoreViewSet, 'store')
@@ -14,4 +16,9 @@ router.register('category', CategoryViewSet, 'category')
 router.register('product', ProductViewSet, 'product')
 router.register('store_item', StoreItemViewSet, 'store_item')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard')
+]
+
+
+urlpatterns += router.urls

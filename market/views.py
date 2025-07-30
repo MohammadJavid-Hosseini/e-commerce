@@ -1,9 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
+from rest_framework.response import Response
 from market.models import Store, StoreAddress, Category, Product, StoreItem
 from market.serializers import (
     StoreSerializer,
@@ -181,10 +183,19 @@ class StoreItemViewSet(ModelViewSet,
         return response
 
 
-# class SellerDashBoardAPIView(APIView):
-#     """Indicate seller-related stores, categories, and products"""
+class SellerDashBoardAPIView(APIView):
+    """Indicate seller-related stores, categories, and products"""
 
-#     def get(self, request):
-#         user = request.user
-#         stores = Store.objects.filter(seller=user).count()
-#         categories = Category.objects.filter(products__)
+    def get(self, request):
+        user = request.user
+        store_count = Store.objects.filter(seller=user).count()
+        store_items = StoreItem.objects.filter(store__seller=user)
+        item_count = store_items.count()
+        active_item_count = store_items.filter(is_active=True).count()
+
+        response = {
+            'stores': store_count,
+            'total_store_items': item_count,
+            'approved_store_items':  active_item_count
+            }
+        return Response(response, status=status.HTTP_200_OK)
