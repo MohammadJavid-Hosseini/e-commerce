@@ -1,7 +1,8 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
 from market.models import Store, StoreAddress, Category, Product, StoreItem
 from market.serializers import (
@@ -19,11 +20,18 @@ from market.services.mixins import (
     CachableQuerySetMixin
 )
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
+from market.filters import (
+    ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
 
 
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
     pagination_class = SmallPaginatioinSettings
+    filter_backends = [OrderingFilter, SearchFilter, DjangoFilterBackend]
+    filterset_class = StoreFilter
+    search_fields = ['name', 'seller__username']
+    ordering_fields = ['id', 'name']
+    ordering = ['name']
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -50,6 +58,8 @@ class StoreAddressViewSet(ModelViewSet):
     serializer_class = StoreAddressSerializer
     permission_classes = [IsAuthenticated, IsSellerOfAddress]
     pagination_class = SmallPaginatioinSettings
+    filter_backends = [SearchFilter]
+    search_fields = ['label', 'city', 'state', 'country']
 
     def get_queryset(self):
         return StoreAddress.objects.filter(store__seller=self.request.user)
@@ -61,9 +71,11 @@ class CategoryViewSet (ModelViewSet,
 
     serializer_class = CategorySerializer
     permission_classes = [IsSellerOrReadOnly]
-    filter_backends = [OrderingFilter]
+    filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
     ordering_fields = ['name', 'id']
     ordering = ['name']
+    search_fields = ['name']
+    filterset_class = CategoryFilter
     pagination_class = SmallPaginatioinSettings
 
     def get_queryset(self):
@@ -100,9 +112,12 @@ class ProductViewSet(ModelViewSet,
                      CachableQuerySetMixin):
 
     permission_classes = [IsSellerOrReadOnly]
-    filter_backends = [OrderingFilter]
+    filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
     ordering_fields = ['name', 'id']
     ordering = ['id']
+    search_fields = ['name', 'category__name']
+    filterset_class = ProductFilter
+
     pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
@@ -139,9 +154,12 @@ class StoreItemViewSet(ModelViewSet,
 
     serializer_class = StoreItemSerializer
     permission_classes = [IsAuthenticated, IsSeller]
-    filter_backends = [OrderingFilter]
+    filter_backends = [OrderingFilter, SearchFilter, DjangoFilterBackend]
     ordering_fields = ['product', 'price', 'discount_price', 'stock']
     ordering = ['-price']
+    filterset_class = StoreItemFilter
+    search_fields = ['store__name', 'product__name', 'store__seller__username']
+    pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
         qs = StoreItem.objects.select_related('store', 'product')
