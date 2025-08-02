@@ -137,12 +137,20 @@ class StoreItem(TimeStampedModel, SoftDeleteModel):
 
 
 class Cart(TimeStampedModel, SoftDeleteModel):
-    customer = models.ForeignKey(
-        to=User, on_delete=models.CASCADE)
-    total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
-    total_discount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
+    customer = models.OneToOneField(
+        to=User, on_delete=models.CASCADE, related_name='cart')
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items.all())
+
+    @property
+    def total_discount(self):
+        return sum(item.total_discount for item in self.items.all())
+
+    @property
+    def final_price(self):
+        return self.total_price - self.total_discount
 
 
 class CartItem(TimeStampedModel, SoftDeleteModel):
@@ -150,13 +158,30 @@ class CartItem(TimeStampedModel, SoftDeleteModel):
         to=Cart, on_delete=models.CASCADE, related_name='items')
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
-    total_item_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
-    # computed fields
-    # total_discount = models.DecimalField(max_digits=10, decimal_places=2)
-    # total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    @property
+    def unit_price(self):
+        return self.store_item.price
+
+    @property
+    def unit_discount(self):
+        return self.store_item.discount_price
+
+    @property
+    def final_item_price(self):
+        return self.unit_price - self.unit_discount
+
+    @property
+    def total_price(self):
+        return self.unit_price * self.quantity
+
+    @property
+    def total_discount(self):
+        return self.unit_discount * self.quantity
+
+    @property
+    def final_price(self):
+        return self.total_price - self.total_discount
 
 
 class Order(TimeStampedModel, SoftDeleteModel):
@@ -165,8 +190,9 @@ class Order(TimeStampedModel, SoftDeleteModel):
     address = models.ForeignKey(to=UserAddress, on_delete=models.DO_NOTHING)
     status = models.CharField(
         max_length=12, choices=STATUS_CHOICES, default=ORDER_STATUS_PENDING)
-    total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
+    # must be computed when creating the order (save in db)
+    # total_price = models.DecimalField(
+    #     max_digits=10, decimal_places=2, default=0)  
 
     def __str__(self):
         return f"{self.customer.username} - order {self.id}"
@@ -177,7 +203,9 @@ class OrderItem(TimeStampedModel, SoftDeleteModel):
         to=Order, on_delete=models.CASCADE, related_name='items')
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
+    # price must be frozen when creating the order
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # must be computed when creating the order and frozen in db
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=0)
 
