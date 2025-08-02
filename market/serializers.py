@@ -107,7 +107,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
-    items = CartItemSerializer(many=True)
+    items = CartItemSerializer(many=True, required=False)
     total_price = serializers.SerializerMethodField()
     total_discount = serializers.SerializerMethodField()
     final_price = serializers.SerializerMethodField()

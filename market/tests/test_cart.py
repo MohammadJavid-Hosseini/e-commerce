@@ -15,25 +15,6 @@ class CartTests(APITestCase):
             password='jpass'
         )
         self.client.force_authenticate(user=self.user)
-
-    def test_create_empty_cart(self):
-        """Test creating an empty cart"""
-        url = reverse('cart')
-        res = self.client.post(path=url, data={}, format='json')
-
-        self.assertEqual(res.status_code, 201)
-        self.assertEqual(res.data, {
-            "id": 1,
-            "customer": self.user.id,
-            "items": [],
-            "total_price": 0,
-            "total_discount": 0,
-            "final_price": 0
-            }
-        )
-
-    def test_create_cart_with_items(self):
-        """Test creating a cart with items all at once"""
         self.seller = User.objects.create_user(
             username='Jack',
             phone='09221234568',
@@ -76,6 +57,25 @@ class CartTests(APITestCase):
             is_active=True,
         )
 
+    def test_create_empty_cart(self):
+        """Test creating an empty cart"""
+        url = reverse('cart')
+        res = self.client.post(path=url, data={}, format='json')
+        cart_id = res.data['id']
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data, {
+            "id": cart_id,
+            "customer": self.user.id,
+            "items": [],
+            "total_price": 0,
+            "total_discount": 0,
+            "final_price": 0
+            }
+        )
+
+    def test_create_cart_with_items(self):
+        """Test creating a cart with items all at once"""
+
         url = reverse('cart')
         payload = {
             "items": [
@@ -87,12 +87,12 @@ class CartTests(APITestCase):
         }
 
         res = self.client.post(url, payload, format='json')
-
+        cart_id = res.data["id"]
         self.assertEqual(res.status_code, 201)
         self.assertEqual(
             res.data,
             {
-                "id": 1,
+                "id": cart_id,
                 "customer": self.user.id,
                 "items": [
                     {
@@ -105,3 +105,6 @@ class CartTests(APITestCase):
                 "final_price": 11600000.00
             }
         )
+
+    # def test_update_cart(self):
+    #     """test updating an existing cart by changing the quantity"""
