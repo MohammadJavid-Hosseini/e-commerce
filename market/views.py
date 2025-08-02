@@ -1,19 +1,22 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
+from rest_framework.generics import ListCreateAPIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
-from market.models import Store, StoreAddress, Category, Product, StoreItem
+from market.models import (
+    Store, StoreAddress, Category, Product, StoreItem, Cart)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
     CategorySerializer,
     ProductListSerializer,
     ProductDetailSerializer,
-    StoreItemSerializer
+    StoreItemSerializer,
+    CartSerializer,
     )
 from market.permissions import (
     IsStoreOwner, IsSellerOfAddress, IsSeller, IsSellerOrReadOnly)
@@ -199,3 +202,15 @@ class SellerDashBoardAPIView(APIView):
             'approved_store_items':  active_item_count
             }
         return Response(response, status=status.HTTP_200_OK)
+
+
+class CartListAPIView(ListCreateAPIView):
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Cart.objects.all()
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Cart.objects.select_related('customer').all()
+        Cart.objects.get_or_create(customer=self.request.user)
+        return Cart.objects.filter(customer=self.request.user)

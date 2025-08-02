@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from market.models import Store, StoreAddress, Category, Product, StoreItem
+from market.models import (
+    Store, StoreAddress, Category, Product, StoreItem, Cart)
 from market.services.mixins import RepresentAsStringMixin
 
 
@@ -97,3 +98,40 @@ class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
             'discount_price', 'stock', 'is_active']
 
     read_only_fields = ['is_active']
+
+
+class CartItemSerializer(serializers.Serializer):
+    name = serializers.CharField()
+
+
+class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
+    items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'customer', 'items', 'total_price',
+                  'total_discount', 'final_price']
+        read_only_fields = ['id', 'customer']
+
+    def get_total_price(self, obj):
+        return obj.total_price
+
+    def get_total_discount(self, obj):
+        return obj.total_discount
+
+    def get_final_price(self, obj):
+        return obj.final_price
+
+    def create(self, validated_data):
+        customer = validated_data.get('customer')
+        request = self.context.get('request')
+        if request and not customer:
+            validated_data['customer'] = request.user
+        return Cart.objects.create(**validated_data)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        return self.to_string(fields, 'customer')
