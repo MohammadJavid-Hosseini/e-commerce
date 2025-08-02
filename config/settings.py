@@ -165,7 +165,8 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_BACKENDS': (
         'rest_framework.pagination.PageNumberPagination',
-    )
+    ),
+    'COERCE_DECIMAL_TO_STRING': False,
 }
 
 # Set the simplejwt stuff

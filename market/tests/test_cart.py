@@ -1,7 +1,8 @@
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
-from market.models import Cart, CartItem, StoreItem, Store, StoreAddress, Product, Category
+from market.models import (
+    StoreItem, Store, StoreAddress, Product, Category)
 
 User = get_user_model()
 
@@ -50,7 +51,7 @@ class CartTests(APITestCase):
         )
         self.store = Store.objects.create(
             name='Best IT store',
-            deleted_at='Buy every thing related to IT',
+            description='Buy every thing related to IT',
             seller=self.seller,
             address=self.store_address
         )
@@ -71,6 +72,7 @@ class CartTests(APITestCase):
             store=self.store,
             price=6000000,
             discount_price=200000,
+            stock=190,
             is_active=True,
         )
 
@@ -92,9 +94,14 @@ class CartTests(APITestCase):
             {
                 "id": 1,
                 "customer": self.user.id,
-                "items": [{self.store_item_1.id},],
-                "total_price": 0,
-                "total_discount": 0,
-                "final_price": 0
+                "items": [
+                    {
+                        "store_item": self.store_item_1.id,
+                        "quantity": 2
+                        },
+                    ],
+                "total_price": 12000000.00,
+                "total_discount": 400000,
+                "final_price": 11600000.00
             }
         )
