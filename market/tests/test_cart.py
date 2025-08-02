@@ -1,7 +1,7 @@
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
-
+from market.models import Cart, CartItem, StoreItem, Store, StoreAddress, Product, Category
 
 User = get_user_model()
 
@@ -9,7 +9,7 @@ User = get_user_model()
 class CartTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username='javid',
+            username='Bob',
             phone='09221234567',
             password='jpass'
         )
@@ -31,10 +31,70 @@ class CartTests(APITestCase):
             }
         )
 
-    # def test_create_cart_with_items(self):
-    #     """Test creating a cart with items all at once"""
-    #     url = reverse('cart')
-    #     payload = {
+    def test_create_cart_with_items(self):
+        """Test creating a cart with items all at once"""
+        self.seller = User.objects.create_user(
+            username='Jack',
+            phone='09221234568',
+            password='jpass2',
+            is_seller=True
+        )
+        self.store_address = StoreAddress.objects.create(
+            label='first branch',
+            address_line_1='No. 309',
+            address_line_2='Main St.',
+            city='city1',
+            state='state1',
+            postal_code='1234567890',
+            country='country1'
+        )
+        self.store = Store.objects.create(
+            name='Best IT store',
+            deleted_at='Buy every thing related to IT',
+            seller=self.seller,
+            address=self.store_address
+        )
+        self.category_1 = Category.objects.create(
+            name='Cases',
+            description='Cases Description',
+            is_active=True,
+            parent=None
+        )
+        self.product = Product.objects.create(
+            name='Mini Case A2',
+            description="description2",
+            is_active=True,
+            category=self.category_1
+        )
+        self.store_item_1 = StoreItem.objects.create(
+            product=self.product,
+            store=self.store,
+            price=6000000,
+            discount_price=200000,
+            is_active=True,
+        )
 
-    #     }
-    #     res = self.client.post
+        url = reverse('cart')
+        payload = {
+            "items": [
+                {
+                    "store_item": self.store_item_1.id,
+                    "quantity": 2
+                }
+            ]
+        }
+
+        res = self.client.post(url, payload, format='json')
+
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(
+            res.data,
+            {
+                "id": 1,
+                "customer": self.user.id,
+                "items": [{self.store_item_1.id},],
+                "total_price": 0,
+                "total_discount": 0,
+                "final_price": 0
+            }
+        )
