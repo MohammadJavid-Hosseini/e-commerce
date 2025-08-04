@@ -169,10 +169,10 @@ REST_FRAMEWORK = {
     'COERCE_DECIMAL_TO_STRING': False,
 }
 
-# Set the simplejwt stuff
-# set it production-type later
+# Set simplejwt config
 
 SIMPLE_JWT = {
+    # HACK: just to make authentication easier, fix it later
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     # 'BLACKLIST_AFTER_ROTATION': True,
     # 'ROTATE_REFRESH_TOKENS': True
@@ -202,5 +202,5 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'authorization',
     'content-type',
-    'x-csrftoken',  # Add if using CSRF
+    'x-csrftoken',
 ]

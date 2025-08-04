@@ -233,7 +233,7 @@ class CartViewSet(ModelViewSet):
     @action(detail=True, methods=['post'])
     def empty(self, request, pk=None):
         cart = self.get_object()
-        cart.items.all().hard_delete()
+        cart.items.all().delete()
         serializer = self.get_serializer(cart)
 
         return Response(
@@ -242,6 +242,9 @@ class CartViewSet(ModelViewSet):
                 "cart": serializer.data},
             status=status.HTTP_200_OK
         )
+
+# TODO: implement a celery task to hard_delete soft-deleted cart-items
+#       periodically
 
 
 class CartItemViewSet(ModelViewSet):

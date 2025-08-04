@@ -18,7 +18,7 @@ class CategoryFilter(FilterSet):
             'is_active': ['exact'],
             'parent': ['exact'],
             'parent__name': ['exact', 'icontains']
-            # paret__name has a bug (doesn't work), fix it later
+            # FIXME: paret__name has a bug (doesn't work), fix it later
         }
 
 
