@@ -273,5 +273,10 @@ class CartItemViewSet(ModelViewSet):
                 {"detail": "This item is already in the cart; just update it."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        if serializer.validated_data.get('quantity') <= 0:
+            return Response(
+                {"detail": "Quantity can not be 0"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer.save(cart=cart)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

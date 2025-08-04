@@ -145,6 +145,13 @@ class CartItemSerializer(serializers.ModelSerializer,
         self.to_string(fields, 'store_item')
         return fields
 
+    def update(self, instance, validated_data):
+        quantity = validated_data.get('quantity')
+        if quantity <= 0:
+            raise serializers.ValidationError("Quantity must not be 0", 400)
+
+    # NOTE: when creating a cart item, if quantity is not passed set it 1
+
 
 class MiniCartItemSerializer (serializers.ModelSerializer,
                               RepresentAsStringMixin):
@@ -193,12 +200,14 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         if request and not customer:
             validated_data['customer'] = request.user
 
-        cart, success = Cart.objects.get_or_create(**validated_data)
+        cart, created = Cart.objects.get_or_create(**validated_data)
 
-        if not success:
+        if not created:
             cart.items.all().delete()
 
         for item in items_data:
+            if item.get('quantity') <= 0:
+                raise serializers.ValidationError("Quantity can not be 0", 400)
             CartItem.objects.create(cart=cart, **item)
 
         return cart
@@ -216,7 +225,11 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
             for item_data in items_data:
                 store_item = item_data.get('store_item')
                 quantity = item_data.get('quantity')
+                if quantity <= 0:
+                    raise serializers.ValidationError(
+                        "Quantity can not be 0", 400)
 
+                # check if cart_item is already added
                 cart_item = instance.items.filter(store_item=store_item).first()
                 if cart_item:
                     cart_item.quantity = quantity
