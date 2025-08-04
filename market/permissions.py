@@ -45,3 +45,9 @@ class IsAdminOrCreateOnly(BasePermission):
         if request.method == 'GET':
             return request.user.is_staff
         return request.user.is_authenticated
+
+
+class IsCartOwner(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return True if request.user.is_staff \
+            else request.user == obj.cart.customer

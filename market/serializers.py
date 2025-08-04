@@ -100,14 +100,72 @@ class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
     read_only_fields = ['is_active']
 
 
-class CartItemSerializer(serializers.ModelSerializer):
+class CartItemSerializer(serializers.ModelSerializer,
+                         RepresentAsStringMixin):
+
+    unit_price = serializers.SerializerMethodField()
+    unit_discount = serializers.SerializerMethodField()
+    final_item_price = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
+
     class Meta:
         model = CartItem
-        fields = ['store_item', 'quantity']
+        fields = [
+            'id', 'cart', 'store_item', 'quantity',
+            'unit_price', 'unit_discount', 'final_item_price',
+            'total_price', 'total_discount', 'final_price']
+        read_only_fields = [
+            'id', 'cart', 'unit_price', 'unit_discount',
+            'final_item_price', 'total_price',
+            'total_discount', 'final_price']
+
+    def get_unit_price(self, obj):
+        return obj.unit_price
+
+    def get_unit_discount(self, obj):
+        return obj.unit_discount
+
+    def get_final_item_price(self, obj):
+        return obj.final_item_price
+
+    def get_total_price(self, obj):
+        return obj.total_price
+
+    def get_total_discount(self, obj):
+        return obj.total_discount
+
+    def get_final_price(self, obj):
+        return obj.final_price
+
+    def get_fields(self):
+        fields = super().get_fields()
+        self.to_string(fields, 'cart')
+        self.to_string(fields, 'store_item')
+        return fields
+
+
+class MiniCartItemSerializer (serializers.ModelSerializer,
+                              RepresentAsStringMixin):
+
+    final_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'store_item', 'quantity', 'final_price']
+        read_only_fields = ['id', 'final_price']
+
+    def get_final_price(self, obj):
+        return obj.final_price
+
+    def get_fields(self):
+        fields = super().get_fields()
+        return self.to_string(fields, 'store_item')
 
 
 class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
-    items = CartItemSerializer(many=True, required=False)
+    items = MiniCartItemSerializer(many=True, required=False)
     total_price = serializers.SerializerMethodField()
     total_discount = serializers.SerializerMethodField()
     final_price = serializers.SerializerMethodField()

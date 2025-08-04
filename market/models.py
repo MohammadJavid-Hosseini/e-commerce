@@ -152,6 +152,9 @@ class Cart(TimeStampedModel, SoftDeleteModel):
     def final_price(self):
         return self.total_price - self.total_discount
 
+    def __str__(self):
+        return f"Cart No. {self.id} for {self.customer.username}"
+
 
 class CartItem(TimeStampedModel, SoftDeleteModel):
     cart = models.ForeignKey(

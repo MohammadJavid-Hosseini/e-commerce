@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart)
+    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -16,12 +16,15 @@ from market.serializers import (
     ProductDetailSerializer,
     StoreItemSerializer,
     CartSerializer,
+    CartItemSerializer,
+    MiniCartItemSerializer,
     )
 from market.permissions import (
     IsStoreOwner,
     IsSellerOfAddress,
     IsSeller,
     IsSellerOrReadOnly,
+    IsCartOwner,
     )
 from market.services.mixins import (
     AddActivateEndpointMixin,
@@ -218,12 +221,14 @@ class CartViewSet(ModelViewSet):
         Cart.objects.get_or_create(customer=self.request.user)
         return Cart.objects.filter(customer=self.request.user)
 
-    def destroy(self, requets, *args, **kwargs):
-        return Response({
-            'detail': 'Cart deletion is desabled. Use /cart/<id>/empty instead'
-            },
-            status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            return Response({
+                'detail': 'Cart deletion is desabled. Use /cart/<id>/empty instead'
+                },
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
     def empty(self, request, pk=None):
@@ -237,3 +242,33 @@ class CartViewSet(ModelViewSet):
                 "cart": serializer.data},
             status=status.HTTP_200_OK
         )
+
+
+class CartItemViewSet(ModelViewSet):
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAuthenticated, IsCartOwner]
+
+    def get_queryset(self):
+        base_qs = CartItem.objects.select_related('cart', 'store_item')
+        user = self.request.user
+        if user.is_staff:
+            return base_qs.all()
+        return base_qs.filter(cart__customer=user)
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'create']:
+            return MiniCartItemSerializer
+        return CartItemSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cart = Cart.objects.filter(customer=self.request.user).first()
+        store_item = serializer.validated_data.get('store_item')
+        if cart.items.filter(store_item__id=store_item.id).exists():
+            return Response(
+                {"detail": "This item is already in the cart; just update it."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer.save(cart=cart)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
