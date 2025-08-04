@@ -4,7 +4,6 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import ListCreateAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
@@ -19,7 +18,11 @@ from market.serializers import (
     CartSerializer,
     )
 from market.permissions import (
-    IsStoreOwner, IsSellerOfAddress, IsSeller, IsSellerOrReadOnly)
+    IsStoreOwner,
+    IsSellerOfAddress,
+    IsSeller,
+    IsSellerOrReadOnly,
+    )
 from market.services.mixins import (
     AddActivateEndpointMixin,
     CachableQuerySetMixin
@@ -204,7 +207,7 @@ class SellerDashBoardAPIView(APIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
-class CartListAPIView(ListCreateAPIView):
+class CarViewSet(ModelViewSet):
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
     queryset = Cart.objects.all()

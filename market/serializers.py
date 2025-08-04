@@ -145,6 +145,30 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
         return cart
 
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', [])
+
+        # updating cart attrs (other than items)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if items_data:
+            for item_data in items_data:
+                store_item = item_data.get('store_item')
+                quantity = item_data.get('quantity')
+
+                cart_item = instance.items.filter(store_item=store_item).first()
+                if cart_item:
+                    cart_item.quantity = quantity
+                    cart_item.save()
+                else:
+                    CartItem.objects.create(cart=instance, **item_data)
+
+        return instance
+
+    # delete must be overriden, too; since the id is persistent while the object.is_deleted is True
+
     def get_fields(self):
         fields = super().get_fields()
         return self.to_string(fields, 'customer')

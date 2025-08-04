@@ -106,5 +106,44 @@ class CartTests(APITestCase):
             }
         )
 
-    # def test_update_cart(self):
-    #     """test updating an existing cart by changing the quantity"""
+    def test_update_quantity_in_cart(self):
+        """test updating an existing cart by changing the quantity"""
+
+        # creating a cart
+        cart_res = self.client.post(
+            reverse('cart-list'),
+            {
+                "items": [
+                    {"store_item": self.store_item_1.id, "quantity": 2}]
+            },
+            format='json'
+        )
+
+        url = reverse('cart-detail', kwargs={'pk': cart_res.data['id']})
+        payload = {
+            "items": [
+                {
+                    "store_item": self.store_item_1.id,
+                    "quantity": 1
+                }
+            ]
+        }
+        res = self.client.patch(url, payload, format='json')
+        cart_id = res.data['id']
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.data,
+            {
+                "id": cart_id,
+                "customer": self.user.id,
+                "items": [
+                    {
+                        "store_item": self.store_item_1.id,
+                        "quantity": 1
+                        },
+                    ],
+                "total_price": 6000000,
+                "total_discount": 200000,
+                "final_price": 5800000
+            })

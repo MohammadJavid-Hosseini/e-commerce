@@ -7,7 +7,8 @@ from market.views import (
     ProductViewSet,
     StoreItemViewSet,
     SellerDashBoardAPIView,
-    CartListAPIView,
+    CarViewSet,
+    # CartDetailAPIView,
     )
 
 router = DefaultRouter()
@@ -16,10 +17,11 @@ router.register('store_address', StoreAddressViewSet, 'store_address')
 router.register('category', CategoryViewSet, 'category')
 router.register('product', ProductViewSet, 'product')
 router.register('store_item', StoreItemViewSet, 'store_item')
+router.register('cart', CarViewSet, 'cart')
 
 urlpatterns = [
     path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
-    path('cart/', CartListAPIView.as_view(), name='cart')
+    # path('mycart/', CartDetailAPIView.as_view(), name='my_cart')
 ]
 
 
