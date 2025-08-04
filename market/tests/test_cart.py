@@ -119,6 +119,7 @@ class CartTests(APITestCase):
             format='json'
         )
 
+        # update the cart
         url = reverse('cart-detail', kwargs={'pk': cart_res.data['id']})
         payload = {
             "items": [
@@ -147,3 +148,21 @@ class CartTests(APITestCase):
                 "total_discount": 200000,
                 "final_price": 5800000
             })
+
+    def test_empty_the_cart(self):
+        # creating a cart
+        cart_res = self.client.post(
+            reverse('cart-list'),
+            {
+                "items": [
+                    {"store_item": self.store_item_1.id, "quantity": 2}]
+            },
+            format='json'
+        )
+
+        # empty the cart
+        url = url = reverse('cart-empty', kwargs={'pk': cart_res.data['id']})
+        res = self.client.post(path=url)
+
+        self.assertIn(res.data['message'], 'Your cart currently has no Items')
+        self.assertEqual(res.data['cart']['items'], [])

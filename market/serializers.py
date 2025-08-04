@@ -153,6 +153,7 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
             setattr(instance, attr, value)
         instance.save()
 
+        # update cart's items
         if items_data:
             for item_data in items_data:
                 store_item = item_data.get('store_item')
@@ -166,8 +167,6 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
                     CartItem.objects.create(cart=instance, **item_data)
 
         return instance
-
-    # delete must be overriden, too; since the id is persistent while the object.is_deleted is True
 
     def get_fields(self):
         fields = super().get_fields()

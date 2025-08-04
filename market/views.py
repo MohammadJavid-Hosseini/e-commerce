@@ -207,7 +207,7 @@ class SellerDashBoardAPIView(APIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
-class CarViewSet(ModelViewSet):
+class CartViewSet(ModelViewSet):
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
     queryset = Cart.objects.all()
@@ -217,3 +217,23 @@ class CarViewSet(ModelViewSet):
             return Cart.objects.select_related('customer').all()
         Cart.objects.get_or_create(customer=self.request.user)
         return Cart.objects.filter(customer=self.request.user)
+
+    def destroy(self, requets, *args, **kwargs):
+        return Response({
+            'detail': 'Cart deletion is desabled. Use /cart/<id>/empty instead'
+            },
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    @action(detail=True, methods=['post'])
+    def empty(self, request, pk=None):
+        cart = self.get_object()
+        cart.items.all().hard_delete()
+        serializer = self.get_serializer(cart)
+
+        return Response(
+            {
+                "message": "Your cart currently has no Items",
+                "cart": serializer.data},
+            status=status.HTTP_200_OK
+        )
