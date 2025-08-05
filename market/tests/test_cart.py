@@ -1,8 +1,9 @@
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
+from account.models import UserAddress
 from market.models import (
-    StoreItem, Store, StoreAddress, Product, Category)
+    StoreItem, Store, StoreAddress, Product, Category, Order)
 
 User = get_user_model()
 
@@ -15,6 +16,16 @@ class CartTests(APITestCase):
             password='jpass'
         )
         self.client.force_authenticate(user=self.user)
+        self.user_address = UserAddress.objects.create(
+            owner=self.user,
+            label="home",
+            address_line_1="No. 23",
+            address_line_2="Bank St.",
+            city="Chicago",
+            state="Chicago",
+            country="U.S",
+            postal_code="878239"
+        )
         self.seller = User.objects.create_user(
             username='Jack',
             phone='09221234568',
@@ -59,7 +70,7 @@ class CartTests(APITestCase):
 
     def test_create_empty_cart(self):
         """Test creating an empty cart"""
-        url = reverse('cart')
+        url = reverse('cart-list')
         res = self.client.post(path=url, data={}, format='json')
         cart_id = res.data['id']
         self.assertEqual(res.status_code, 201)
@@ -76,7 +87,7 @@ class CartTests(APITestCase):
     def test_create_cart_with_items(self):
         """Test creating a cart with items all at once"""
 
-        url = reverse('cart')
+        url = reverse('cart-list')
         payload = {
             "items": [
                 {
@@ -88,6 +99,9 @@ class CartTests(APITestCase):
 
         res = self.client.post(url, payload, format='json')
         cart_id = res.data["id"]
+        item_id = res.data['items'][0]['id']
+        final_price = res.data['items'][0]['final_price']
+
         self.assertEqual(res.status_code, 201)
         self.assertEqual(
             res.data,
@@ -96,8 +110,10 @@ class CartTests(APITestCase):
                 "customer": self.user.id,
                 "items": [
                     {
+                        "id": item_id,
                         "store_item": self.store_item_1.id,
-                        "quantity": 2
+                        "quantity": 2,
+                        "final_price": final_price
                         },
                     ],
                 "total_price": 12000000.00,
@@ -131,6 +147,8 @@ class CartTests(APITestCase):
         }
         res = self.client.patch(url, payload, format='json')
         cart_id = res.data['id']
+        item_id = res.data['items'][0]['id']
+        final_price = res.data['items'][0]['final_price']
 
         self.assertEqual(res.status_code, 200)
         self.assertEqual(
@@ -140,8 +158,10 @@ class CartTests(APITestCase):
                 "customer": self.user.id,
                 "items": [
                     {
+                        "id": item_id,
                         "store_item": self.store_item_1.id,
-                        "quantity": 1
+                        "quantity": 1,
+                        "final_price": final_price
                         },
                     ],
                 "total_price": 6000000,
@@ -166,3 +186,27 @@ class CartTests(APITestCase):
 
         self.assertIn(res.data['message'], 'Your cart currently has no Items')
         self.assertEqual(res.data['cart']['items'], [])
+
+    def test_create_order(self):
+        # creating a cart
+        self.client.post(
+            reverse('cart-list'),
+            {
+                "items": [
+                    {"store_item": self.store_item_1.id, "quantity": 2}]
+            },
+            format='json'
+        )
+        # creating an order
+        url = reverse('order')
+        payload = {
+            "address": self.user_address.id
+        }
+        res = self.client.post(url, payload, format='json')
+        self.assertEqual(res.status_code, 201)
+        order_id = res.data['id']
+        self.assertTrue(Order.objects.filter(id=order_id).exists())
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.customer, self.user)
+        self.assertEqual(order.items.count(), 1)
+        self.assertEqual(order.items.first().quantity, 2)
