@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'django_extensions',
     'corsheaders',  # for handling ports connection with front
     'rest_framework',
     'rest_framework_simplejwt',

@@ -193,9 +193,8 @@ class Order(TimeStampedModel, SoftDeleteModel):
     address = models.ForeignKey(to=UserAddress, on_delete=models.DO_NOTHING)
     status = models.CharField(
         max_length=12, choices=STATUS_CHOICES, default=ORDER_STATUS_PENDING)
-    # must be computed when creating the order (save in db)
-    # total_price = models.DecimalField(
-    #     max_digits=10, decimal_places=2, default=0)
+    total_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
         return f"{self.customer.username} - order {self.id}"
@@ -206,11 +205,18 @@ class OrderItem(TimeStampedModel, SoftDeleteModel):
         to=Order, on_delete=models.CASCADE, related_name='items')
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
-    # price must be frozen when creating the order
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    # must be computed when creating the order and frozen in db
+    discount_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=0)
+    total_discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
+    final_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.order} - {self.store_item.name}"
 
 
 class Payment(TimeStampedModel, SoftDeleteModel):

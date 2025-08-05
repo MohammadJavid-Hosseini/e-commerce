@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem)
+    Store, StoreAddress, Category,
+    Product, StoreItem, Cart, CartItem, Order, OrderItem)
 from market.services.mixins import RepresentAsStringMixin
 
 
@@ -242,3 +243,69 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
     def get_fields(self):
         fields = super().get_fields()
         return self.to_string(fields, 'customer')
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['store_item', 'quantity']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+
+    items = OrderItemSerializer(many=True, read_only=True, required=False)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'customer', 'address', 'items', 'status', 'total_price', 'created_at']
+        read_only_fields = ['id', 'customer', 'items', 'status', 'total_price', 'created_at']
+
+    def create(self, validated_data):
+        """create an order using user's cart and then empty the cart"""
+
+        # fetch customer and address
+        user = self.context.get('request').user
+        address = validated_data.get('address', None)
+        if address is None:
+            raise serializers.ValidationError(
+                "Address is needed, set one if you haven't yet.", 400)
+        cart = Cart.objects.filter(customer=user).first()
+        cart_items = cart.items.all()
+
+        if len(cart_items) == 0:
+            raise serializers.ValidationError("Your cart is empty!", 400)
+
+        # create the order
+        order = Order.objects.create(customer=user, address=address)
+        order_total_price = 0
+
+        # create order-items
+        for cart_item in cart_items:
+            unit_price = cart_item.store_item.price
+            unit_discount = cart_item.store_item.discount_price or 0
+            quantity = cart_item.quantity
+
+            total_price = unit_price * quantity
+            total_discount = unit_discount * quantity
+            final_price = total_price - total_discount
+
+            order_total_price += final_price
+
+            OrderItem.objects.create(
+                order=order,
+                store_item=cart_item.store_item,
+                quantity=quantity,
+                price=unit_price,
+                discount_price=unit_discount,
+                total_price=total_price,
+                total_discount=total_discount,
+                final_price=final_price,
+            )
+
+        # add total price to order
+        order.total_price = order_total_price
+
+        # empty the cart
+        cart.items.all().delete()
+
+        return order

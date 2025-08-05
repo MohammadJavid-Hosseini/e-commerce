@@ -9,6 +9,7 @@ from market.views import (
     SellerDashBoardAPIView,
     CartViewSet,
     CartItemViewSet,
+    OrderCreateListAPIView,
     )
 
 router = DefaultRouter()
@@ -22,6 +23,7 @@ router.register('cart_item', CartItemViewSet, 'cart_item')
 
 urlpatterns = [
     path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
+    path('order/', OrderCreateListAPIView.as_view(), name='order'),
 ]
 
 

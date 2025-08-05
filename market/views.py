@@ -4,10 +4,11 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
+from rest_framework.generics import ListCreateAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem)
+    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -18,6 +19,7 @@ from market.serializers import (
     CartSerializer,
     CartItemSerializer,
     MiniCartItemSerializer,
+    OrderSerializer,
     )
 from market.permissions import (
     IsStoreOwner,
@@ -280,3 +282,13 @@ class CartItemViewSet(ModelViewSet):
             )
         serializer.save(cart=cart)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class OrderCreateListAPIView(ListCreateAPIView):
+    serializer_class = OrderSerializer
+    queryset = Order.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Order.objects.prefetch_related('items').filter(customer=user)
