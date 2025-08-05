@@ -304,6 +304,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # add total price to order
         order.total_price = order_total_price
+        order.save()
 
         # empty the cart
         cart.items.all().delete()
