@@ -10,6 +10,7 @@ from market.views import (
     CartViewSet,
     CartItemViewSet,
     OrderCreateListAPIView,
+    OrderDetailAPIView,
     )
 
 router = DefaultRouter()
@@ -24,6 +25,8 @@ router.register('cart_item', CartItemViewSet, 'cart_item')
 urlpatterns = [
     path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
     path('order/', OrderCreateListAPIView.as_view(), name='order'),
+    path('order/<int:pk>/', OrderDetailAPIView.as_view(), name='order-detail'),
+    # path('order/<int:pk>/cancel/', OrderCancelAPIView.as_view(), name='order-cancel'),
 ]
 
 

@@ -231,13 +231,13 @@ class CartTests(APITestCase):
         order_id = create_res.data['id']
 
         # update order
-        url = reverse('order-cancel', kwargs={'pk': order_id})
+        url = reverse('order-detail', kwargs={'pk': order_id})
         new_address_id = self.user_address_2.id
         res = self.client.patch(url, {'address': new_address_id}, 'json')
 
         # check the result
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.data['address'], str(new_address_id))
+        self.assertEqual(res.data['address'], new_address_id)
         order = Order.objects.get(id=order_id)
         self.assertEqual(order.address, self.user_address_2)
 

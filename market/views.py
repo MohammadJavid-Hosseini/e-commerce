@@ -1,10 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import ListCreateAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
@@ -292,3 +293,19 @@ class OrderCreateListAPIView(ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         return Order.objects.prefetch_related('items').filter(customer=user)
+
+
+class OrderDetailAPIView(RetrieveUpdateAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+    # NOTE: if you fully override get_object you do not need to define queryset
+    #       but otherwise it is needed. Here you can omit it
+    # queryset = Order.objects.prefetch_related('items').all()
+
+    def get_object(self):
+        order = get_object_or_404(
+            Order.objects.prefetch_related('items'),
+            pk=self.kwargs['pk'],
+            customer=self.request.user
+            )
+        return order

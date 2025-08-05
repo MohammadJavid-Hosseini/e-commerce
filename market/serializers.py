@@ -245,13 +245,17 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         return self.to_string(fields, 'customer')
 
 
-class OrderItemSerializer(serializers.ModelSerializer):
+class OrderItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
     class Meta:
         model = OrderItem
         fields = ['store_item', 'quantity']
 
+    def get_fields(self):
+        fields = super().get_fields()
+        return self.to_string(fields, 'store_item')
 
-class OrderSerializer(serializers.ModelSerializer):
+
+class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
     items = OrderItemSerializer(many=True, read_only=True, required=False)
 
@@ -310,3 +314,9 @@ class OrderSerializer(serializers.ModelSerializer):
         cart.items.all().delete()
 
         return order
+
+    def get_fields(self):
+        fields = super().get_fields()
+        self.to_string(fields, 'customer')
+        self.to_string(fields, 'address')
+        return fields
