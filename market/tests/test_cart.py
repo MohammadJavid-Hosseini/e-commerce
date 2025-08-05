@@ -3,8 +3,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from account.models import UserAddress
 from market.models import (
-    StoreItem, Store, StoreAddress, Product, Category, Order)
-
+    StoreItem, Store, StoreAddress, Product, Category,
+    Order, ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED)
 User = get_user_model()
 
 
@@ -176,7 +176,7 @@ class CartTests(APITestCase):
         # create cart
         self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
 
-        # creating an order
+        # create order
         res = self.client.post(
             reverse('order'), {"address": self.user_address.id}, 'json')
 
@@ -188,3 +188,78 @@ class CartTests(APITestCase):
         self.assertEqual(order.customer, self.user)
         self.assertEqual(order.items.count(), 1)
         self.assertEqual(order.items.first().quantity, 2)
+
+    def test_cancel_pending_order(self):
+        # create cart
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+
+        # create order
+        create_res = self.client.post(
+            reverse('order'), {"address": self.user_address.id}, 'json')
+        order_id = create_res.data['id']
+
+        # update order
+        url = reverse('order-cancel', kwargs={'pk': order_id})
+        res = self.client.patch(url, {})
+
+        # check the result
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['status'], ORDER_STATUS_CANCELLED)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, ORDER_STATUS_CANCELLED)
+
+    def test_update_order_address(self):
+
+        # create a new address
+        self.user_address_2 = UserAddress.objects.create(
+            owner=self.user,
+            label="Mom home",
+            address_line_1="No. 30",
+            address_line_2="Bank St.",
+            city="Brooklyn",
+            state="New York",
+            country="U.S",
+            postal_code="8780239"
+        )
+
+        # create cart
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+
+        # create order
+        create_res = self.client.post(
+            reverse('order'), {"address": self.user_address.id}, 'json')
+        order_id = create_res.data['id']
+
+        # update order
+        url = reverse('order-cancel', kwargs={'pk': order_id})
+        new_address_id = self.user_address_2.id
+        res = self.client.patch(url, {'address': new_address_id}, 'json')
+
+        # check the result
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['address'], str(new_address_id))
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.address, self.user_address_2)
+
+    def test_cancel_delivered_order(self):
+
+        # create cart and order
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+        create_res = self.client.post(
+            reverse('order'), {"address": self.user_address.id}, 'json')
+
+        # change the order status
+        order_id = create_res.data['id']
+        order = Order.objects.get(id=order_id)
+        order.status = ORDER_STATUS_DELIVERED
+        order.save()
+
+        # attempt to update order
+        url = reverse('order-cancel', kwargs={'pk': order_id})
+        res = self.client.patch(url, {})
+
+        # check the result
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(
+            res.data['detail'],
+            "You can not cancel a shipped or delivered order.")
