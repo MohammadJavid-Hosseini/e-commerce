@@ -68,10 +68,16 @@ class CartTests(APITestCase):
             is_active=True,
         )
 
+    def create_cart(self, items: list):
+        url = reverse('cart-list')
+        return self.client.post(url, {'items': items}, format='json')
+
     def test_create_empty_cart(self):
         """Test creating an empty cart"""
-        url = reverse('cart-list')
-        res = self.client.post(path=url, data={}, format='json')
+        # create a cart
+        res = self.create_cart([])
+
+        # check the result
         cart_id = res.data['id']
         self.assertEqual(res.status_code, 201)
         self.assertEqual(res.data, {
@@ -86,18 +92,11 @@ class CartTests(APITestCase):
 
     def test_create_cart_with_items(self):
         """Test creating a cart with items all at once"""
+        # create cart
+        res = self.create_cart(
+            [{"store_item": self.store_item_1.id, "quantity": 2}])
 
-        url = reverse('cart-list')
-        payload = {
-            "items": [
-                {
-                    "store_item": self.store_item_1.id,
-                    "quantity": 2
-                }
-            ]
-        }
-
-        res = self.client.post(url, payload, format='json')
+        # check the result
         cart_id = res.data["id"]
         item_id = res.data['items'][0]['id']
         final_price = res.data['items'][0]['final_price']
@@ -125,27 +124,18 @@ class CartTests(APITestCase):
     def test_update_quantity_in_cart(self):
         """test updating an existing cart by changing the quantity"""
 
-        # creating a cart
-        cart_res = self.client.post(
-            reverse('cart-list'),
-            {
-                "items": [
-                    {"store_item": self.store_item_1.id, "quantity": 2}]
-            },
-            format='json'
-        )
+        # create cart
+        cart_res = self.create_cart(
+            [{"store_item": self.store_item_1.id, "quantity": 2}])
 
         # update the cart
         url = reverse('cart-detail', kwargs={'pk': cart_res.data['id']})
         payload = {
-            "items": [
-                {
-                    "store_item": self.store_item_1.id,
-                    "quantity": 1
-                }
-            ]
+            "items": [{"store_item": self.store_item_1.id, "quantity": 1}]
         }
         res = self.client.patch(url, payload, format='json')
+
+        # check the result
         cart_id = res.data['id']
         item_id = res.data['items'][0]['id']
         final_price = res.data['items'][0]['final_price']
@@ -171,38 +161,26 @@ class CartTests(APITestCase):
 
     def test_empty_the_cart(self):
         # creating a cart
-        cart_res = self.client.post(
-            reverse('cart-list'),
-            {
-                "items": [
-                    {"store_item": self.store_item_1.id, "quantity": 2}]
-            },
-            format='json'
-        )
+        cart_res = self.create_cart(
+            [{"store_item": self.store_item_1.id, "quantity": 2}])
 
         # empty the cart
         url = url = reverse('cart-empty', kwargs={'pk': cart_res.data['id']})
         res = self.client.post(path=url)
 
+        # check the result
         self.assertIn(res.data['message'], 'Your cart currently has no Items')
         self.assertEqual(res.data['cart']['items'], [])
 
     def test_create_order(self):
-        # creating a cart
-        self.client.post(
-            reverse('cart-list'),
-            {
-                "items": [
-                    {"store_item": self.store_item_1.id, "quantity": 2}]
-            },
-            format='json'
-        )
+        # create cart
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+
         # creating an order
-        url = reverse('order')
-        payload = {
-            "address": self.user_address.id
-        }
-        res = self.client.post(url, payload, format='json')
+        res = self.client.post(
+            reverse('order'), {"address": self.user_address.id}, 'json')
+
+        # test the result
         self.assertEqual(res.status_code, 201)
         order_id = res.data['id']
         self.assertTrue(Order.objects.filter(id=order_id).exists())
