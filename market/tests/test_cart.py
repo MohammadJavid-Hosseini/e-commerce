@@ -329,11 +329,15 @@ class CartTests(APITestCase):
         mock_verify.return_value = {
             "data": {
                 "code": 100,
+                "message": "Verified",
                 "ref_id": '201',
-                "card_pan": "502229******5995"
-            }
+                "card_pan": "502229******5995",
+                "card_hash": "hash-value",
+                "fee_type": "Merchant",
+                "fee": 0
+            },
+            "errors": []
         }
-
         # simulate callback
         res = self.client.get(reverse('payment-verify'), {
             "Authority": payment.reference_id,

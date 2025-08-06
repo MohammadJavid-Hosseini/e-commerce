@@ -191,6 +191,8 @@ CACHES = {
         }
     }
 
+# celery settings
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/2'
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
