@@ -9,7 +9,8 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order)
+    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
+    ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED,)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -294,3 +295,32 @@ class OrderViewSet(ModelViewSet):
         user = self.request.user
         qs = Order.objects.prefetch_related('items').select_related('customer')
         return qs.all() if user.is_staff else qs.filter(customer=user)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response('', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk: None):
+        order = self.get_object()
+        if not order.is_editable:
+            return Response(
+                {'detail': 'You can not cancel a shipped or delivered order.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        order.status = ORDER_STATUS_CANCELLED
+        order.save()
+        return Response(
+            {'detail': 'Your order cancelled'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def confirm(self, request, pk: None):
+        order = self.get_object()
+        if (not order.is_editable) or (order.is_delivered):
+            return Response(
+                {'detail': 'The order is not confirmable. check the status.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        order.status = ORDER_STATUS_DELIVERED
+        order.save()
+        return Response(
+            {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)

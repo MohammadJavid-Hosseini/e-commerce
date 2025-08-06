@@ -189,25 +189,6 @@ class CartTests(APITestCase):
         self.assertEqual(order.items.count(), 1)
         self.assertEqual(order.items.first().quantity, 2)
 
-    def test_cancel_pending_order(self):
-        # create cart
-        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
-
-        # create order
-        create_res = self.client.post(
-            reverse('order-list'), {"address": self.user_address.id}, 'json')
-        order_id = create_res.data['id']
-
-        # update order
-        url = reverse('order-cancel', kwargs={'pk': order_id})
-        res = self.client.patch(url, {})
-
-        # check the result
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.data['status'], ORDER_STATUS_CANCELLED)
-        order = Order.objects.get(id=order_id)
-        self.assertEqual(order.status, ORDER_STATUS_CANCELLED)
-
     def test_update_order_address(self):
 
         # create a new address
@@ -241,6 +222,24 @@ class CartTests(APITestCase):
         order = Order.objects.get(id=order_id)
         self.assertEqual(order.address, self.user_address_2)
 
+    def test_cancel_pending_order(self):
+        # create cart
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+
+        # create order
+        create_res = self.client.post(
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
+        order_id = create_res.data['id']
+
+        # update order
+        url = reverse('order-cancel', kwargs={'pk': order_id})
+        res = self.client.post(url)
+
+        # check the result
+        self.assertEqual(res.status_code, 200)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, ORDER_STATUS_CANCELLED)
+
     def test_cancel_delivered_order(self):
 
         # create cart and order
@@ -256,7 +255,7 @@ class CartTests(APITestCase):
 
         # attempt to update order
         url = reverse('order-cancel', kwargs={'pk': order_id})
-        res = self.client.patch(url, {})
+        res = self.client.post(url)
 
         # check the result
         self.assertEqual(res.status_code, 400)

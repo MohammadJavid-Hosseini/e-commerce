@@ -199,6 +199,14 @@ class Order(TimeStampedModel, SoftDeleteModel):
     def __str__(self):
         return f"{self.customer.username} - order {self.id}"
 
+    @property
+    def is_editable(self):
+        return self.status in [ORDER_STATUS_PENDING, ORDER_STATUS_PROCESSING]
+
+    @property
+    def is_delivered(self):
+        return self.status == ORDER_STATUS_DELIVERED
+
 
 class OrderItem(TimeStampedModel, SoftDeleteModel):
     order = models.ForeignKey(
