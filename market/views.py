@@ -10,7 +10,8 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
     Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
-    ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED,)
+    ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED,
+    ORDER_STATUS_PENDING, ORDER_STATUS_PROCESSING)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -314,13 +315,27 @@ class OrderViewSet(ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def confirm(self, request, pk: None):
+        """confirm order if stock is available and reserve the stock"""
+
         order = self.get_object()
-        if order.is_delivered:
+        # check status; pending
+        if order.status != ORDER_STATUS_PENDING:
             return Response(
-                {'detail': 'The order is not confirmable. check the status.'},
+                {'detail': f'Can not confirm; it is {order.status}'},
                 status=status.HTTP_400_BAD_REQUEST
-            )
-        order.status = ORDER_STATUS_DELIVERED
+                )
+        # check stock availibility
+        for item in order.items.all():
+            if item.quantity > item.store_item.stock:
+                return Response(
+                    {'detail': 'Not enough stock'},
+                    status=status.HTTP_400_OK)
+            # update stock
+            store_item = item.store_item
+            store_item.stock -= item.quantity
+            store_item.save()
+
+        order.status = ORDER_STATUS_PROCESSING
         order.save()
         return Response(
             {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)

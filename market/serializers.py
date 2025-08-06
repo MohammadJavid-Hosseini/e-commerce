@@ -290,9 +290,9 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         for cart_item in cart_items:
             # check if quantity is available
             quantity = cart_item.quantity
-            if quantity > cart_item.store_item.quantity:
+            if quantity > cart_item.store_item.stock:
                 raise serializers.ValidationError(
-                    f"Only {cart_item.store_item.quantity} \
+                    f"Only {cart_item.store_item.stock} \
                         items available for '{cart_item.store_item.name}'"
                     )
 
