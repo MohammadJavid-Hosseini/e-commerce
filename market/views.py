@@ -28,6 +28,7 @@ from market.permissions import (
     IsSeller,
     IsSellerOrReadOnly,
     IsCartOwner,
+    IsOrderOwner,
     )
 from market.services.mixins import (
     AddActivateEndpointMixin,
@@ -285,27 +286,11 @@ class CartItemViewSet(ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class OrderCreateListAPIView(ListCreateAPIView):
+class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
-    queryset = Order.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrderOwner]
 
     def get_queryset(self):
         user = self.request.user
-        return Order.objects.prefetch_related('items').filter(customer=user)
-
-
-class OrderDetailAPIView(RetrieveUpdateAPIView):
-    serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
-    # NOTE: if you fully override get_object you do not need to define queryset
-    #       but otherwise it is needed. Here you can omit it
-    # queryset = Order.objects.prefetch_related('items').all()
-
-    def get_object(self):
-        order = get_object_or_404(
-            Order.objects.prefetch_related('items'),
-            pk=self.kwargs['pk'],
-            customer=self.request.user
-            )
-        return order
+        qs = Order.objects.prefetch_related('items').select_related('customer')
+        return qs.all() if user.is_staff else qs.filter(customer=user)

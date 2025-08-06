@@ -178,7 +178,7 @@ class CartTests(APITestCase):
 
         # create order
         res = self.client.post(
-            reverse('order'), {"address": self.user_address.id}, 'json')
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
 
         # test the result
         self.assertEqual(res.status_code, 201)
@@ -195,7 +195,7 @@ class CartTests(APITestCase):
 
         # create order
         create_res = self.client.post(
-            reverse('order'), {"address": self.user_address.id}, 'json')
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
         order_id = create_res.data['id']
 
         # update order
@@ -227,7 +227,7 @@ class CartTests(APITestCase):
 
         # create order
         create_res = self.client.post(
-            reverse('order'), {"address": self.user_address.id}, 'json')
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
         order_id = create_res.data['id']
 
         # update order
@@ -246,7 +246,7 @@ class CartTests(APITestCase):
         # create cart and order
         self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
         create_res = self.client.post(
-            reverse('order'), {"address": self.user_address.id}, 'json')
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
 
         # change the order status
         order_id = create_res.data['id']
