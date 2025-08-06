@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from market.models import (
     Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
     ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED,
-    ORDER_STATUS_PENDING, ORDER_STATUS_PROCESSING)
+    ORDER_STATUS_PENDING, ORDER_STATUS_PROCESSING,
+    ORDER_STATUS_FAILED)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -230,7 +231,8 @@ class CartViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         if not request.user.is_staff:
             return Response({
-                'detail': 'Cart deletion is desabled. Use /cart/<id>/empty instead'
+                'detail': 'Cart deletion is desabled. \
+                    Use /cart/<id>/empty instead'
                 },
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
@@ -298,7 +300,9 @@ class OrderViewSet(ModelViewSet):
         return qs.all() if user.is_staff else qs.filter(customer=user)
 
     def destroy(self, request, *args, **kwargs):
-        return Response('', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(
+            {'detail': 'Use order/<int:pk>/cancel/; not Delete method'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk: None):
@@ -327,9 +331,12 @@ class OrderViewSet(ModelViewSet):
         # check stock availibility
         for item in order.items.all():
             if item.quantity > item.store_item.stock:
+                order.status = ORDER_STATUS_FAILED
+                order.save()
                 return Response(
-                    {'detail': 'Not enough stock'},
-                    status=status.HTTP_400_OK)
+                    {'detail': 'Items are out of enough stock. \
+                        Your order failed. Try again'},
+                    status=status.HTTP_400_BAD_REQUEST)
             # update stock
             store_item = item.store_item
             store_item.stock -= item.quantity
@@ -339,3 +346,18 @@ class OrderViewSet(ModelViewSet):
         order.save()
         return Response(
             {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def reject(self, request, pk: None):
+        order = self.get_object()
+        if not order.is_editable:
+            return Response(
+                {'detail': 'Cannot update the order status to failed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        order.status = ORDER_STATUS_FAILED
+        order.save()
+        return Response(
+            {'detail': 'The order rejected'},
+            status=status.HTTP_200_OK
+        )
