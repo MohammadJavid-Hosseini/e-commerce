@@ -228,7 +228,8 @@ class OrderItem(TimeStampedModel, SoftDeleteModel):
 
 
 class Payment(TimeStampedModel, SoftDeleteModel):
-    order = models.ForeignKey(to=Order, on_delete=models.DO_NOTHING)
+    order = models.ForeignKey(
+        to=Order, on_delete=models.DO_NOTHING, related_name='payment')
     status = models.CharField(
         max_length=15, choices=PAYMENT_STATUS_CHOICES,
         default=PAYMENT_STATUS_PENDING)

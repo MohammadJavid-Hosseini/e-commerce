@@ -1,10 +1,13 @@
+from decimal import Decimal
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
+from unittest.mock import patch
 from account.models import UserAddress
 from market.models import (
-    StoreItem, Store, StoreAddress, Product, Category,
-    Order, ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED)
+    StoreItem, Store, StoreAddress, Product, Category, Payment,
+    Order, ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED,
+    PAYMENT_STATUS_PENDING, PAYMENT_STATUS_SUCCESS)
 User = get_user_model()
 
 
@@ -262,3 +265,84 @@ class CartTests(APITestCase):
         self.assertEqual(
             res.data['detail'],
             f'can not cancel the order; it is {order.status}')
+
+    def test_initial_payment(self):
+        self.admin_user = User.objects.create_superuser(
+            username='Max',
+            phone='09221234500',
+            password='Mpass',
+            is_staff=True
+        )
+
+        # create cart and order
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+        create_res = self.client.post(
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
+
+        # confirm the order
+        order_id = create_res.data['id']
+        self.client.force_login(user=self.admin_user)
+        self.client.post(reverse('order-confirm', kwargs={'pk': order_id}))
+        self.client.logout()
+
+        # initial paying by user
+        self.client.force_login(user=self.user)
+        pay_res = self.client.post(
+            reverse('order-pay', kwargs={'pk': order_id}))
+
+        # check the result
+        self.assertEqual(pay_res.status_code, 200)
+        self.assertIn('redirect_url', pay_res.data)
+
+        payment = Payment.objects.get(order_id=order_id)
+        order_price = create_res.data['total_price']
+        self.assertEqual(payment.status, PAYMENT_STATUS_PENDING)
+        self.assertEqual(payment.amount, Decimal(order_price))
+
+    @patch('market.views.verify_payment')
+    def test_payment_callback_success(self, mock_verify):
+        self.admin_user = User.objects.create_superuser(
+            username='Max',
+            phone='09221234500',
+            password='Mpass',
+            is_staff=True
+        )
+
+        # create cart and order
+        self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
+        create_res = self.client.post(
+            reverse('order-list'), {"address": self.user_address.id}, 'json')
+
+        # confirm the order
+        order_id = create_res.data['id']
+        self.client.force_login(user=self.admin_user)
+        self.client.post(reverse('order-confirm', kwargs={'pk': order_id}))
+        self.client.logout()
+
+        # initial paying by user
+        self.client.force_login(user=self.user)
+        self.client.post(
+            reverse('order-pay', kwargs={'pk': order_id}))
+        payment = Payment.objects.get(order_id=order_id)
+        # mock Zarinpal verification response
+        # NOTE: Zarinpal responds a json file from which you can choose
+        mock_verify.return_value = {
+            "data": {
+                "code": 100,
+                "ref_id": '201',
+                "card_pan": "502229******5995"
+            }
+        }
+
+        # simulate callback
+        res = self.client.get(reverse('payment-verify'), {
+            "Authority": payment.reference_id,
+            "Status": "OK"
+        })
+
+        # check the result
+        self.assertEqual(res.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.card_pan, "502229******5995")
+        self.assertEqual(payment.status, PAYMENT_STATUS_SUCCESS)
+        self.assertEqual(payment.transaction_id, '201')
