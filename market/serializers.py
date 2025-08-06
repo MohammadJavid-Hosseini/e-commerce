@@ -270,12 +270,15 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         # fetch customer and address
         user = self.context.get('request').user
         address = validated_data.get('address', None)
+
+        # addrss error
         if address is None:
             raise serializers.ValidationError(
                 "Address is needed, set one if you haven't yet.", 400)
+
+        # cart error
         cart = Cart.objects.filter(customer=user).first()
         cart_items = cart.items.all()
-
         if len(cart_items) == 0:
             raise serializers.ValidationError("Your cart is empty!", 400)
 
@@ -285,10 +288,16 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
         # create order-items
         for cart_item in cart_items:
+            # check if quantity is available
+            quantity = cart_item.quantity
+            if quantity > cart_item.store_item.quantity:
+                raise serializers.ValidationError(
+                    f"Only {cart_item.store_item.quantity} \
+                        items available for '{cart_item.store_item.name}'"
+                    )
+
             unit_price = cart_item.store_item.price
             unit_discount = cart_item.store_item.discount_price or 0
-            quantity = cart_item.quantity
-
             total_price = unit_price * quantity
             total_discount = unit_discount * quantity
             final_price = total_price - total_discount

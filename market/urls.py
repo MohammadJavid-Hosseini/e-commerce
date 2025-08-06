@@ -24,7 +24,6 @@ router.register('order', OrderViewSet, 'order')
 
 urlpatterns = [
     path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
-    # path('order/<int:pk>/cancel/', OrderCancelAPIView.as_view(), name='order-cancel'),
 ]
 
 

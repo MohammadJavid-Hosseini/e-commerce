@@ -261,4 +261,4 @@ class CartTests(APITestCase):
         self.assertEqual(res.status_code, 400)
         self.assertEqual(
             res.data['detail'],
-            "You can not cancel a shipped or delivered order.")
+            f'can not cancel the order; it is {order.status}')

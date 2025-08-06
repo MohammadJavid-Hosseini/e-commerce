@@ -304,7 +304,7 @@ class OrderViewSet(ModelViewSet):
         order = self.get_object()
         if not order.is_editable:
             return Response(
-                {'detail': 'You can not cancel a shipped or delivered order.'},
+                {'detail': f'can not cancel the order; it is {order.status}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         order.status = ORDER_STATUS_CANCELLED
@@ -315,7 +315,7 @@ class OrderViewSet(ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def confirm(self, request, pk: None):
         order = self.get_object()
-        if (not order.is_editable) or (order.is_delivered):
+        if order.is_delivered:
             return Response(
                 {'detail': 'The order is not confirmable. check the status.'},
                 status=status.HTTP_400_BAD_REQUEST
