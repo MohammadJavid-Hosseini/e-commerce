@@ -193,6 +193,16 @@ CACHES = {
 
 # celery settings
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/2'
+
+# email setting
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gamil.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'javidbusinesstech@gmail.com'
+EMAIL_HOST_PASSWORD = 'your-email-password'
+
+
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
