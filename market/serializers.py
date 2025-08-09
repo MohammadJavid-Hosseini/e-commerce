@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from market.models import (
     Store, StoreAddress, Category,
-    Product, StoreItem, Cart, CartItem, Order, OrderItem)
+    Product, StoreItem, Cart, CartItem, Order, OrderItem, UserAddress)
 from market.services.mixins import RepresentAsStringMixin
+from market.tasks import send_order_creation_email
 
 
 class StoreAddressSerializer(serializers.ModelSerializer):
@@ -275,6 +276,11 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         if address is None:
             raise serializers.ValidationError(
                 "Address is needed, set one if you haven't yet.", 400)
+        address_qs = UserAddress.objects.select_related('owner') \
+            .filter(owner=user.id)
+        if address not in address_qs.all():
+            raise serializers.ValidationError(
+                "This address doesn't belog to this user", 400)
 
         # cart error
         cart = Cart.objects.filter(customer=user).first()
@@ -321,6 +327,8 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
         # empty the cart
         cart.items.all().delete()
+
+        send_order_creation_email.delay(user.email, order.id)
 
         return order
 
