@@ -35,6 +35,9 @@ Although the frontend is not yet connected, the backend is **fully functional** 
 - **JavaScript, HTML, CSS**
 - **TailwindCSS** or **Bootstrap** (optional styling)
 
+### 📂 Architecture
+![Diagram description](docs/architecture_diagram.png)
+
 
 
 ## ⚙️ Installation & Setup
