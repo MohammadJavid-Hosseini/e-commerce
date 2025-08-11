@@ -233,10 +233,10 @@ class Payment(TimeStampedModel, SoftDeleteModel):
     status = models.CharField(
         max_length=15, choices=PAYMENT_STATUS_CHOICES,
         default=PAYMENT_STATUS_PENDING)
-    transaction_id = models.CharField(max_length=255)
+    transaction_id = models.CharField(max_length=255, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    reference_id = models.CharField(max_length=255)
-    card_pan = models.CharField(max_length=255)
+    reference_id = models.CharField(max_length=255, null=True, blank=True)
+    card_pan = models.CharField(max_length=255, null=True, blank=True)
     fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
 

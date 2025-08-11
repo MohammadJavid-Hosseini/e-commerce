@@ -1,16 +1,20 @@
+import uuid
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    RetrieveUpdateDestroyAPIView, CreateAPIView)
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
     Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
-    Review, ORDER_STATUS_CANCELLED, ORDER_STATUS_PENDING,
-    ORDER_STATUS_PROCESSING, ORDER_STATUS_FAILED)
+    Review, Payment, ORDER_STATUS_CANCELLED, ORDER_STATUS_PENDING,
+    ORDER_STATUS_PROCESSING, ORDER_STATUS_FAILED, PAYMENT_STATUS_PENDING,
+    PAYMENT_STATUS_SUCCESS,
+    )
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -337,7 +341,7 @@ class OrderViewSet(ModelViewSet):
             status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=True, methods=['post'])
-    def cancel(self, request, pk: None):
+    def cancel(self, request, pk=None):
         order = self.get_object()
         if not order.is_editable:
             return Response(
@@ -350,7 +354,7 @@ class OrderViewSet(ModelViewSet):
             {'detail': 'Your order cancelled'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def confirm(self, request, pk: None):
+    def confirm(self, request, pk=None):
         """confirm order if stock is available and reserve the stock"""
 
         order = self.get_object()
@@ -383,7 +387,7 @@ class OrderViewSet(ModelViewSet):
             {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def reject(self, request, pk: None):
+    def reject(self, request, pk=None):
         order = self.get_object()
         if not order.is_editable:
             return Response(
@@ -397,6 +401,38 @@ class OrderViewSet(ModelViewSet):
             status=status.HTTP_200_OK
         )
 
+    @action(detail=True, methods=['post'], permission_classes=[IsOrderOwner])
+    def pay(self, request, pk=None):
+        order = self.get_object()
+
+        if order.status != ORDER_STATUS_PROCESSING:
+            return Response(
+                {'detail': f"Order status must be processing; but it's {order.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        payment = Payment.objects.filter(order=order).first()
+        if payment and payment.status == PAYMENT_STATUS_SUCCESS:
+            return Response(
+                {'detail': f"It can not paid. it is {payment.status}"},  # either sucess or failed
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if payment and payment.status == PAYMENT_STATUS_PENDING:
+            payment.delete()
+            
+        reference_id = str(uuid.uuid4())
+        Payment.objects.create(
+            order=order,
+            status=PAYMENT_STATUS_PENDING,
+            reference_id=reference_id,
+            amount=order.total_price
+        )
+
+        return Response(
+            {'redirect_url': 'www.zarinpal.com', 'reference_id': reference_id},
+            status=status.HTTP_201_CREATED
+        )
+
 
 class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = ReviewSerializer
@@ -405,3 +441,6 @@ class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         serializer.save(user=self.request.user)
+
+
+# class PaymentCreateAPIView(CreateAPIView):

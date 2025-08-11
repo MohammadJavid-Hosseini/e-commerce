@@ -53,7 +53,7 @@ class IsCartOwner(BasePermission):
             else request.user == obj.cart.customer
 
 
-class IsOrderOwner(BasePermission):
+class IsOrderOwner(IsAuthenticated):
     def has_object_permission(self, request, view, obj):
         return request.user.is_staff or obj.customer == request.user
 
