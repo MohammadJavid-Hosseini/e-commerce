@@ -68,6 +68,22 @@ class ReviewSerializer(serializers.ModelSerializer,
         fields = ['id', 'rating', 'user', 'comment', 'created_at', 'updated_at']
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
+    def validate(self, attrs):
+        comment = attrs.get('comment')
+        rating = attrs.get('rating')
+
+        if comment is None or comment.strip() == '':
+            raise serializers.ValidationError("Please leave a comment")
+        if not (1 <= rating <= 5):
+            raise serializers.ValidationError("rating must be between 1 and 5")
+        user = self.context['request'].user
+        product = self.context['product']
+        if Review.objects.filter(user=user, product=product).exists():
+            raise serializers.ValidationError(
+                "You have already reviewed this product")
+
+        return attrs
+
     def get_fields(self):
         fields = super().get_fields()
         return self.to_string(fields, 'user')
@@ -86,8 +102,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'is_active', 'rating', 'best_seller', 'best_price', 'reviews'
         ]
-    
-
 
 
 class ProductListSerializer(serializers.ModelSerializer):
@@ -102,7 +116,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
     def get_reviews(self, obj):
         return [str(review) for review in obj.reviews.all()][:4]
-        
+
 
 class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
@@ -169,7 +183,7 @@ class CartItemSerializer(serializers.ModelSerializer,
     def update(self, instance, validated_data):
         quantity = validated_data.get('quantity')
         if quantity <= 0:
-            raise serializers.ValidationError("Quantity must not be 0", 400)
+            raise serializers.ValidationError("Quantity must not be 0")
 
     # NOTE: when creating a cart item, if quantity is not passed set it 1
 
@@ -228,7 +242,7 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
         for item in items_data:
             if item.get('quantity') <= 0:
-                raise serializers.ValidationError("Quantity can not be 0", 400)
+                raise serializers.ValidationError("Quantity can not be 0")
             CartItem.objects.create(cart=cart, **item)
 
         return cart
@@ -247,8 +261,7 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
                 store_item = item_data.get('store_item')
                 quantity = item_data.get('quantity')
                 if quantity <= 0:
-                    raise serializers.ValidationError(
-                        "Quantity can not be 0", 400)
+                    raise serializers.ValidationError("Quantity can not be 0")
 
                 # check if cart_item is already added
                 cart_item = instance.items.filter(store_item=store_item).first()
@@ -294,18 +307,18 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         # addrss error
         if address is None:
             raise serializers.ValidationError(
-                "Address is needed, set one if you haven't yet.", 400)
+                "Address is needed, set one if you haven't yet.")
         address_qs = UserAddress.objects.select_related('owner') \
             .filter(owner=user.id)
         if address not in address_qs.all():
             raise serializers.ValidationError(
-                "This address doesn't belog to this user", 400)
+                "This address doesn't belog to this user")
 
         # cart error
         cart = Cart.objects.filter(customer=user).first()
         cart_items = cart.items.all()
         if len(cart_items) == 0:
-            raise serializers.ValidationError("Your cart is empty!", 400)
+            raise serializers.ValidationError("Your cart is empty!")
 
         # create the order
         order = Order.objects.create(customer=user, address=address)

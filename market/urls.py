@@ -10,6 +10,7 @@ from market.views import (
     CartViewSet,
     CartItemViewSet,
     OrderViewSet,
+    ReviewDetailAPIView,
 )
 
 router = DefaultRouter()
@@ -24,6 +25,7 @@ router.register('order', OrderViewSet, 'order')
 
 urlpatterns = [
     path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
+    path('reviews/<int:pk>/', ReviewDetailAPIView.as_view(), name='reviews')
 ]
 
 

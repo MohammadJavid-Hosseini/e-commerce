@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
@@ -21,6 +22,7 @@ from market.serializers import (
     CartItemSerializer,
     MiniCartItemSerializer,
     OrderSerializer,
+    ReviewSerializer
     )
 from market.permissions import (
     IsStoreOwner,
@@ -29,6 +31,7 @@ from market.permissions import (
     IsSellerOrReadOnly,
     IsCartOwner,
     IsOrderOwner,
+    IsReviewOwner,
     )
 from market.services.mixins import (
     AddActivateEndpointMixin,
@@ -137,12 +140,13 @@ class ProductViewSet(ModelViewSet,
     pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
-        base_qs = Product.objects.select_related('category').prefetch_related('reviews')
+        qs = Product.objects.select_related('category') \
+            .prefetch_related('reviews')
         if self.request.user.is_staff:
-            return self.get_cached_queryset('products', base_qs.all())
+            return self.get_cached_queryset('products', qs.all())
         return self.get_cached_queryset(
             'active_products',
-            base_qs.filter(is_active=True)
+            qs.filter(is_active=True)
             )
 
     def get_serializer_class(self):
@@ -163,32 +167,36 @@ class ProductViewSet(ModelViewSet,
 
         return response
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(
+        detail=True,
+        methods=['get', 'post'],
+        permission_classes=[IsAuthenticated]
+        )
     def reviews(self, request, pk=None):
         product = self.get_object()
-        user = self.request.user
-        rating = self.request.data.get('rating', None)
-        if rating is None:
-            return Response(
-                {'detail': 'You need to rate to leave a review'},
-                status=status.HTTP_400_BAD_REQUEST
-                )
-        comment = self.request.data.get('comment', None)
-        if not comment or comment is None:
-            return Response(
-                {'detail': 'You left no comments!'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # create the review
-        Review.objects.create(
-            user=user, product=product, rating=rating, comment=comment
-        )
 
-        return Response(
-            {'detail': 'Your review is successfully added.'},
-            status=status.HTTP_201_CREATED
-        )
+        if request.method == 'GET':
+            reviews = Review.objects.filter(product=product)
+            serializer = ReviewSerializer(
+                # NOTE: request must be passed,
+                #       it's needed for serializer's to_string method
+                instance=reviews, many=True, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        if request.method == 'POST':
+            serializer = ReviewSerializer(
+                data=request.data,
+                context={'request': request, 'product': product}
+                )
+
+            serializer.is_valid(raise_exception=True)
+
+            Review.objects.create(
+                user=request.user, product=product, **serializer.validated_data
+            )
+            return Response(
+                {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
+
 
 class StoreItemViewSet(ModelViewSet,
                        AddActivateEndpointMixin,
@@ -388,3 +396,12 @@ class OrderViewSet(ModelViewSet):
             {'detail': 'The order rejected'},
             status=status.HTTP_200_OK
         )
+
+
+class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = ReviewSerializer
+    queryset = Review.objects.select_related('user', 'product').all()
+    permission_classes = [IsReviewOwner]
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)
