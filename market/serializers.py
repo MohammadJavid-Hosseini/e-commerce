@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from market.models import (
     Store, StoreAddress, Category,
-    Product, StoreItem, Cart, CartItem, Order, OrderItem, UserAddress)
+    Product, StoreItem, Cart, CartItem, Order, OrderItem, UserAddress, Review)
 from market.services.mixins import RepresentAsStringMixin
 from market.tasks import send_order_creation_email
 
@@ -61,29 +61,48 @@ class CategorySerializer(serializers.ModelSerializer):
             'image', 'is_active', 'parent', 'parent_id']
 
 
+class ReviewSerializer(serializers.ModelSerializer,
+                       RepresentAsStringMixin):
+    class Meta:
+        model = Review
+        fields = ['id', 'rating', 'user', 'comment', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        return self.to_string(fields, 'user')
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = RecursiveCategorySerializer(read_only=True)
+    reviews = ReviewSerializer(many=True, required=False, read_only=True)
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'description', 'category', 'is_active',
-            'rating', 'best_seller', 'best_price'
+            'rating', 'best_seller', 'best_price', 'reviews'
         ]
         read_only_fields = [
-            'is_active', 'rating', 'best_seller', 'best_price'
+            'is_active', 'rating', 'best_seller', 'best_price', 'reviews'
         ]
+    
+
 
 
 class ProductListSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField(read_only=True)
+    reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category']
+        fields = ['id', 'name', 'category', 'reviews']
 
         ordering = ['name']
 
+    def get_reviews(self, obj):
+        return [str(review) for review in obj.reviews.all()][:4]
+        
 
 class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 

@@ -24,17 +24,19 @@ class CustomerTests(APITestCase):
     def test_retrieve_customer_profile(self):
         url = reverse('customer-profile')
         res = self.client.get(path=url)
-
+        user_id = res.data['id']
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(
             res.data,
             {
+                'id': user_id,
                 'username': "userone",
                 'phone': self.phone,
                 'email': "useremail@gmail.com",
                 'picture': None,
                 'is_seller': False,
-                'addresses': []
+                'addresses': [],
+                'is_staff': False
             }
         )
 

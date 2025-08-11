@@ -1,18 +1,15 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
     Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
-    ORDER_STATUS_CANCELLED, ORDER_STATUS_DELIVERED,
-    ORDER_STATUS_PENDING, ORDER_STATUS_PROCESSING,
-    ORDER_STATUS_FAILED)
+    Review, ORDER_STATUS_CANCELLED, ORDER_STATUS_PENDING,
+    ORDER_STATUS_PROCESSING, ORDER_STATUS_FAILED)
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
@@ -140,7 +137,7 @@ class ProductViewSet(ModelViewSet,
     pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
-        base_qs = Product.objects.select_related('category')
+        base_qs = Product.objects.select_related('category').prefetch_related('reviews')
         if self.request.user.is_staff:
             return self.get_cached_queryset('products', base_qs.all())
         return self.get_cached_queryset(
@@ -166,6 +163,32 @@ class ProductViewSet(ModelViewSet,
 
         return response
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def reviews(self, request, pk=None):
+        product = self.get_object()
+        user = self.request.user
+        rating = self.request.data.get('rating', None)
+        if rating is None:
+            return Response(
+                {'detail': 'You need to rate to leave a review'},
+                status=status.HTTP_400_BAD_REQUEST
+                )
+        comment = self.request.data.get('comment', None)
+        if not comment or comment is None:
+            return Response(
+                {'detail': 'You left no comments!'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # create the review
+        Review.objects.create(
+            user=user, product=product, rating=rating, comment=comment
+        )
+
+        return Response(
+            {'detail': 'Your review is successfully added.'},
+            status=status.HTTP_201_CREATED
+        )
 
 class StoreItemViewSet(ModelViewSet,
                        AddActivateEndpointMixin,
@@ -279,7 +302,7 @@ class CartItemViewSet(ModelViewSet):
         store_item = serializer.validated_data.get('store_item')
         if cart.items.filter(store_item__id=store_item.id).exists():
             return Response(
-                {"detail": "This item is already in the cart; just update it."},
+                {"detail": "The item is already in the cart; just update it."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if serializer.validated_data.get('quantity') <= 0:
