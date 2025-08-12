@@ -207,6 +207,15 @@ INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
+# payment gateway config
+PAYMENT_REQUEST_GATEWAY = config('PAYMENT_REQUEST_GATEWAY')
+PAYMENT_GATEWAY = config('PAYMENT_GATEWAY')
+PAYMENT_VERIFY_GATEWAY = config('PAYMENT_VERIFY_GATEWAY')
+MERCHANT_ID = config('MERCHANT_ID')
+DESCRIPTION = "AsanForush E-commerce"
+CURRENCY = 'IRT'
+CALLBACK_URL = '/api/market/payment/verify/'
+
 # set corsheaders config; for connecting to frontend (ports resolvation)
 CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://*']
 CORS_ALLOW_ALL_ORIGINS = True
