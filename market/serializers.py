@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from market.models import (
-    Store, StoreAddress, Category,
-    Product, StoreItem, Cart, CartItem, Order, OrderItem, UserAddress, Review)
+    Store, StoreAddress, Category, Product, StoreItem, Cart,
+    CartItem, Order, OrderItem, UserAddress, Review, Payment)
 from market.services.mixins import RepresentAsStringMixin
 from market.tasks import send_order_creation_email
 
@@ -369,3 +369,18 @@ class OrderSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         self.to_string(fields, 'customer')
         self.to_string(fields, 'address')
         return fields
+
+
+class PaymentVerifySerializer(serializers.Serializer):
+    merchant_id = serializers.CharField()
+    amount = serializers.IntegerField()
+    authority = serializers.CharField()
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = [
+            'id', 'order', 'amount', 'status',
+            'reference_id', 'transaction_id', 'fee', 'card_pan']
+        read_only_fields = ['id', 'order', 'amount', 'reference_id']

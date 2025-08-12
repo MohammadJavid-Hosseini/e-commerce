@@ -1,5 +1,3 @@
-import requests
-import uuid
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
@@ -7,8 +5,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import (
-    RetrieveUpdateDestroyAPIView, UpdateAPIView)
+from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
@@ -44,12 +41,15 @@ from market.services.mixins import (
     AddActivateEndpointMixin,
     CachableQuerySetMixin
 )
+from market.services.payment_service import PaymentService
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 from market.filters import (
     ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
 from market.tasks import send_order_confirmation_email
-
-
+from market.custom_exceptions import (
+    PaymentNotFoundError,
+    PaymentVerificationError
+)
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
     pagination_class = SmallPaginatioinSettings
@@ -425,72 +425,113 @@ class OrderViewSet(ModelViewSet):
             payment.delete()
 
         # NOTE: for test generate reference_id
-        # reference_id = str(uuid.uuid4())
-        # Payment.objects.create(
-        #     order=order,
-        #     status=PAYMENT_STATUS_PENDING,
-        #     reference_id=reference_id,
-        #     amount=order.total_price
-        # )
-
-        # return Response(
-        #     {'redirect_url': 'www.zarinpal.com'},
-        #     status=status.HTTP_201_CREATED
-        # )
-
-        # NOTE: for production send your merchant_id and get the redirect_url
-
-        # sending data to payment gateway
-        payload = {
-            'merchant_id': settings.MERCHANT_ID,
-            'amount': order.total_price,
-            'currency': settings.CURRENCY,
-            'callback_url': settings.CALLBACK_URL,
-            'description': settings.DESCRIPTION,
-            'mobile': request.user.phone,
-            'email': request.user.email or None,
-            'order_id': str(order.id)
-        }
-        try:
-            r = requests.post(
-                settings.PAYMENT_REQUEST_GATEWAY,
-                json=payload,
-                headers={
-                    "accept": "application/json",
-                    "content-type": "application/json"},
-                timeout=10
-            )
-        except Exception as e:
-            return Response(
-                {'detail': f'connection error: {e}'},
-                status=status.HTTP_502_BAD_GATEWAY
-            )
-
-        # check the connection response
-        result = r.json()
-        if result.get('data', {}).get('code') != 100:
-            return Response(
-                {
-                    'detail': 'payment request failed',
-                    'errors': f'{result.get('errors')}'
-                },
-                status=status.HTTP_417_EXPECTATION_FAILED
-            )
-
-        # creating Payment object
-        authority = result.data['authority']
+        reference_id = settings.MERCHANT_ID
         Payment.objects.create(
             order=order,
             status=PAYMENT_STATUS_PENDING,
-            reference_id=authority,
+            reference_id=reference_id,
             amount=order.total_price
         )
 
-        # redirecting customer to paying url
-        pay_url = f'{settings.PAYMENT_GATEWAY}{authority}'
         return Response(
-            {'redirect_url': pay_url},
+            {
+                'redirect_url': settings.PAYMENT_GATEWAY,
+                'reference_id': reference_id},
             status=status.HTTP_201_CREATED
+        )
+
+        # NOTE: for production send your merchant_id and get the redirect_url
+
+        # # sending data to payment gateway
+        # payload = {
+        #     'merchant_id': settings.MERCHANT_ID,
+        #     'amount': order.total_price,
+        #     'currency': settings.CURRENCY,
+        #     'callback_url': settings.CALLBACK_URL,
+        #     'description': settings.DESCRIPTION,
+        #     'mobile': request.user.phone,
+        #     'email': request.user.email or None,
+        #     'order_id': str(order.id)
+        # }
+        # try:
+        #     r = requests.post(
+        #         settings.PAYMENT_REQUEST_GATEWAY,
+        #         json=payload,
+        #         headers={
+        #             "Accept": "application/json",
+        #             "Content-type": "application/json"},
+        #         timeout=10
+        #     )
+        # except Exception as e:
+        #     return Response(
+        #         {'detail': f'connection error: {e}'},
+        #         status=status.HTTP_502_BAD_GATEWAY
+        #     )
+
+        # # check the connection response
+        # result = r.json()
+        # if result.get('data', {}).get('code') != 100:
+        #     return Response(
+        #         {
+        #             'detail': 'payment request failed',
+        #             'errors': f'{result.get('errors')}'
+        #         },
+        #         status=status.HTTP_417_EXPECTATION_FAILED
+        #     )
+
+        # # creating Payment object
+        # authority = result.data['authority']
+        # Payment.objects.create(
+        #     order=order,
+        #     status=PAYMENT_STATUS_PENDING,
+        #     reference_id=authority,
+        #     amount=order.total_price
+        # )
+
+        # # redirecting customer to paying url
+        # pay_url = f'{settings.PAYMENT_GATEWAY}{authority}'
+        # return Response(
+        #     {'redirect_url': pay_url},
+        #     status=status.HTTP_201_CREATED
+        # )
+
+
+class PaymentCallbackAPIView(APIView):
+    """
+    This is the callback_url for payment gateway;
+    It parses the query_params in url,
+    calls methods that verify the payment and update the payment in db,
+    returns the appropriate response to the user.
+    """
+    def get(self, request):
+
+        # check query params
+        status_param = request.query_params.get('Status')
+        authority = request.query_params.get('Authority')
+
+        if status_param != 'OK':
+            return Response(
+                {'detail': 'Payment was not successful'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # call the payment service for verifying and updating the payment
+        try:
+            PaymentService.verify_payment(authority)
+        except PaymentNotFoundError:
+            return Response(
+                {'detail': 'The payment not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except PaymentVerificationError as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_417_EXPECTATION_FAILED
+            )
+
+        return Response(
+            {'detail': 'You have successfully paid the bill'},
+            status=status.HTTP_200_OK
         )
 
 

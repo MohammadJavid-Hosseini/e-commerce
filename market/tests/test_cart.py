@@ -291,16 +291,15 @@ class CartTests(APITestCase):
             reverse('order-pay', kwargs={'pk': order_id}))
 
         # check the result
-        self.assertEqual(pay_res.status_code, 201)
-        self.assertIn('redirect_url', pay_res.data)
-
         payment = Payment.objects.get(order_id=order_id)
         order_price = create_res.data['total_price']
+        self.assertEqual(pay_res.status_code, 201)
+        self.assertIn('redirect_url', pay_res.data)
         self.assertEqual(payment.status, PAYMENT_STATUS_PENDING)
         self.assertEqual(payment.amount, Decimal(order_price))
 
-    @patch('market.views.verify_payment')
-    def test_payment_callback_success(self, mock_verify):
+    @patch('market.services.payment_service.PaymentGatewayService.payment_gateway_verify')
+    def test_payment_callback_success(self, mock_payment_gateway_verify):
         self.admin_user = User.objects.create_superuser(
             username='Max',
             phone='09221234500',
@@ -324,9 +323,10 @@ class CartTests(APITestCase):
         self.client.post(
             reverse('order-pay', kwargs={'pk': order_id}))
         payment = Payment.objects.get(order_id=order_id)
+
         # mock Zarinpal verification response
         # NOTE: Zarinpal responds a json file from which you can choose
-        mock_verify.return_value = {
+        mock_payment_gateway_verify.return_value = {
             "data": {
                 "code": 100,
                 "message": "Verified",
@@ -338,8 +338,10 @@ class CartTests(APITestCase):
             },
             "errors": []
         }
+
         # simulate callback
         res = self.client.get(reverse('payment-verify'), {
+            # NOTE: when the method is GET, the second arg is query params
             "Authority": payment.reference_id,
             "Status": "OK"
         })

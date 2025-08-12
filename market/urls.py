@@ -11,6 +11,7 @@ from market.views import (
     CartItemViewSet,
     OrderViewSet,
     ReviewDetailAPIView,
+    PaymentCallbackAPIView,
 )
 
 router = DefaultRouter()
@@ -25,7 +26,9 @@ router.register('order', OrderViewSet, 'order')
 
 urlpatterns = [
     path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
-    path('reviews/<int:pk>/', ReviewDetailAPIView.as_view(), name='reviews')
+    path('reviews/<int:pk>/', ReviewDetailAPIView.as_view(), name='reviews'),
+    path('payment/verify/', PaymentCallbackAPIView.as_view(),
+         name='payment-verify')
 ]
 
 

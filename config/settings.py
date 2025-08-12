@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import uuid
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
@@ -211,10 +211,14 @@ INTERNAL_IPS = [
 PAYMENT_REQUEST_GATEWAY = config('PAYMENT_REQUEST_GATEWAY')
 PAYMENT_GATEWAY = config('PAYMENT_GATEWAY')
 PAYMENT_VERIFY_GATEWAY = config('PAYMENT_VERIFY_GATEWAY')
-MERCHANT_ID = config('MERCHANT_ID')
 DESCRIPTION = "AsanForush E-commerce"
-CURRENCY = 'IRT'
+CURRENCY = 'IRR'
 CALLBACK_URL = '/api/market/payment/verify/'
+# NOTE: for production
+# MERCHANT_ID = config('MERCHANT_ID')
+# NOTE: for test
+M_ID = str(uuid.uuid4())
+MERCHANT_ID = 'S'+M_ID[1:]
 
 # set corsheaders config; for connecting to frontend (ports resolvation)
 CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://*']
