@@ -29,16 +29,17 @@ class UserAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserAddress
         fields = [
-            'owner', 'label', 'address_line_1', 'address_line_2',
+            'id', 'owner', 'label', 'address_line_1', 'address_line_2',
             'city', 'state', 'country', 'postal_code']
 
-        read_only_fields = ['owner']
+        read_only_fields = ['id', 'owner']
 
 
 class MiniAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserAddress
-        fields = ['label', 'city', 'postal_code']
+        fields = ['id', 'label', 'city', 'postal_code']
+        read_only_fields = ['id']
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import uuid
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
@@ -28,7 +28,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['testserver', 'localhost']
 
 
 # Application definition
@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'django_extensions',
+    'corsheaders',  # for handling ports connection with front
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -51,6 +53,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -163,13 +166,14 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_BACKENDS': (
         'rest_framework.pagination.PageNumberPagination',
-    )
+    ),
+    'COERCE_DECIMAL_TO_STRING': False,
 }
 
-# Set the simplejwt stuff
-# set it production-type later
+# Set simplejwt config
 
 SIMPLE_JWT = {
+    # HACK: just to make authentication easier, fix it later
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     # 'BLACKLIST_AFTER_ROTATION': True,
     # 'ROTATE_REFRESH_TOKENS': True
@@ -187,6 +191,42 @@ CACHES = {
         }
     }
 
+# celery settings
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/2'
+
+# email setting
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
+
 INTERNAL_IPS = [
     "127.0.0.1",
+]
+
+# payment gateway config
+PAYMENT_REQUEST_GATEWAY = config('PAYMENT_REQUEST_GATEWAY')
+PAYMENT_GATEWAY = config('PAYMENT_GATEWAY')
+PAYMENT_VERIFY_GATEWAY = config('PAYMENT_VERIFY_GATEWAY')
+DESCRIPTION = "AsanForush E-commerce"
+CURRENCY = 'IRR'
+CALLBACK_URL = '/api/market/payment/verify/'
+# NOTE: for production
+# MERCHANT_ID = config('MERCHANT_ID')
+# NOTE: for test
+M_ID = str(uuid.uuid4())
+MERCHANT_ID = 'S'+M_ID[1:]
+
+# set corsheaders config; for connecting to frontend (ports resolvation)
+CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://*']
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True  # For cookies/sessions
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'authorization',
+    'content-type',
+    'x-csrftoken',
 ]

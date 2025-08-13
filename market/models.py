@@ -137,12 +137,23 @@ class StoreItem(TimeStampedModel, SoftDeleteModel):
 
 
 class Cart(TimeStampedModel, SoftDeleteModel):
-    customer = models.ForeignKey(
-        to=User, on_delete=models.CASCADE)
-    total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
-    total_discount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
+    customer = models.OneToOneField(
+        to=User, on_delete=models.CASCADE, related_name='cart')
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items.all())
+
+    @property
+    def total_discount(self):
+        return sum(item.total_discount for item in self.items.all())
+
+    @property
+    def final_price(self):
+        return self.total_price - self.total_discount
+
+    def __str__(self):
+        return f"Cart No. {self.id} for {self.customer.username}"
 
 
 class CartItem(TimeStampedModel, SoftDeleteModel):
@@ -150,13 +161,30 @@ class CartItem(TimeStampedModel, SoftDeleteModel):
         to=Cart, on_delete=models.CASCADE, related_name='items')
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
-    total_item_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0)
-    # computed fields
-    # total_discount = models.DecimalField(max_digits=10, decimal_places=2)
-    # total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    @property
+    def unit_price(self):
+        return self.store_item.price
+
+    @property
+    def unit_discount(self):
+        return self.store_item.discount_price
+
+    @property
+    def final_item_price(self):
+        return self.unit_price - self.unit_discount
+
+    @property
+    def total_price(self):
+        return self.unit_price * self.quantity
+
+    @property
+    def total_discount(self):
+        return self.unit_discount * self.quantity
+
+    @property
+    def final_price(self):
+        return self.total_price - self.total_discount
 
 
 class Order(TimeStampedModel, SoftDeleteModel):
@@ -171,6 +199,14 @@ class Order(TimeStampedModel, SoftDeleteModel):
     def __str__(self):
         return f"{self.customer.username} - order {self.id}"
 
+    @property
+    def is_editable(self):
+        return self.status in [ORDER_STATUS_PENDING, ORDER_STATUS_PROCESSING]
+
+    @property
+    def is_delivered(self):
+        return self.status == ORDER_STATUS_DELIVERED
+
 
 class OrderItem(TimeStampedModel, SoftDeleteModel):
     order = models.ForeignKey(
@@ -178,19 +214,29 @@ class OrderItem(TimeStampedModel, SoftDeleteModel):
     store_item = models.ForeignKey(to=StoreItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=0)
+    total_discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
+    final_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.order} - {self.store_item.name}"
 
 
 class Payment(TimeStampedModel, SoftDeleteModel):
-    order = models.ForeignKey(to=Order, on_delete=models.DO_NOTHING)
+    order = models.ForeignKey(
+        to=Order, on_delete=models.DO_NOTHING, related_name='payment')
     status = models.CharField(
         max_length=15, choices=PAYMENT_STATUS_CHOICES,
         default=PAYMENT_STATUS_PENDING)
-    transaction_id = models.CharField(max_length=255)
+    transaction_id = models.CharField(max_length=255, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    reference_id = models.CharField(max_length=255)
-    card_pan = models.CharField(max_length=255)
+    reference_id = models.CharField(max_length=255, null=True, blank=True)
+    card_pan = models.CharField(max_length=255, null=True, blank=True)
     fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
 

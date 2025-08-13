@@ -1,31 +1,55 @@
+from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
-from market.models import Store, StoreAddress, Category, Product, StoreItem
+from market.models import (
+    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
+    Review, Payment, ORDER_STATUS_CANCELLED, ORDER_STATUS_PENDING,
+    ORDER_STATUS_PROCESSING, ORDER_STATUS_FAILED, PAYMENT_STATUS_PENDING,
+    PAYMENT_STATUS_SUCCESS,
+    )
 from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
     CategorySerializer,
     ProductListSerializer,
     ProductDetailSerializer,
-    StoreItemSerializer
+    StoreItemSerializer,
+    CartSerializer,
+    CartItemSerializer,
+    MiniCartItemSerializer,
+    OrderSerializer,
+    ReviewSerializer,
+    PaymentSerializer,
     )
 from market.permissions import (
-    IsStoreOwner, IsSellerOfAddress, IsSeller, IsSellerOrReadOnly)
+    IsStoreOwner,
+    IsSellerOfAddress,
+    IsSeller,
+    IsSellerOrReadOnly,
+    IsCartOwner,
+    IsOrderOwner,
+    IsReviewOwner,
+    )
 from market.services.mixins import (
     AddActivateEndpointMixin,
     CachableQuerySetMixin
 )
+from market.services.payment_service import PaymentService
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 from market.filters import (
     ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
-
-
+from market.tasks import send_order_confirmation_email
+from market.custom_exceptions import (
+    PaymentNotFoundError,
+    PaymentVerificationError
+)
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
     pagination_class = SmallPaginatioinSettings
@@ -123,12 +147,13 @@ class ProductViewSet(ModelViewSet,
     pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
-        base_qs = Product.objects.select_related('category')
+        qs = Product.objects.select_related('category') \
+            .prefetch_related('reviews')
         if self.request.user.is_staff:
-            return self.get_cached_queryset('products', base_qs.all())
+            return self.get_cached_queryset('products', qs.all())
         return self.get_cached_queryset(
             'active_products',
-            base_qs.filter(is_active=True)
+            qs.filter(is_active=True)
             )
 
     def get_serializer_class(self):
@@ -148,6 +173,36 @@ class ProductViewSet(ModelViewSet,
         self.clean_cached_qs('products', 'active_products')
 
         return response
+
+    @action(
+        detail=True,
+        methods=['get', 'post'],
+        permission_classes=[IsAuthenticated]
+        )
+    def reviews(self, request, pk=None):
+        product = self.get_object()
+
+        if request.method == 'GET':
+            reviews = Review.objects.filter(product=product)
+            serializer = ReviewSerializer(
+                # NOTE: request must be passed,
+                #       it's needed for serializer's to_string method
+                instance=reviews, many=True, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        if request.method == 'POST':
+            serializer = ReviewSerializer(
+                data=request.data,
+                context={'request': request, 'product': product}
+                )
+
+            serializer.is_valid(raise_exception=True)
+
+            Review.objects.create(
+                user=request.user, product=product, **serializer.validated_data
+            )
+            return Response(
+                {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
 
 
 class StoreItemViewSet(ModelViewSet,
@@ -199,3 +254,291 @@ class SellerDashBoardAPIView(APIView):
             'approved_store_items':  active_item_count
             }
         return Response(response, status=status.HTTP_200_OK)
+
+
+class CartViewSet(ModelViewSet):
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Cart.objects.all()
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Cart.objects.select_related('customer').all()
+        Cart.objects.get_or_create(customer=self.request.user)
+        return Cart.objects.filter(customer=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            return Response({
+                'detail': 'Cart deletion is desabled. \
+                    Use /cart/<id>/empty instead'
+                },
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def empty(self, request, pk=None):
+        cart = self.get_object()
+        cart.items.all().delete()
+        serializer = self.get_serializer(cart)
+
+        return Response(
+            {
+                "message": "Your cart currently has no Items",
+                "cart": serializer.data},
+            status=status.HTTP_200_OK
+        )
+
+# TODO: implement a celery task to hard_delete soft-deleted cart-items
+#       periodically
+
+
+class CartItemViewSet(ModelViewSet):
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAuthenticated, IsCartOwner]
+
+    def get_queryset(self):
+        base_qs = CartItem.objects.select_related('cart', 'store_item')
+        user = self.request.user
+        if user.is_staff:
+            return base_qs.all()
+        return base_qs.filter(cart__customer=user)
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'create']:
+            return MiniCartItemSerializer
+        return CartItemSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cart = Cart.objects.filter(customer=self.request.user).first()
+        store_item = serializer.validated_data.get('store_item')
+        if cart.items.filter(store_item__id=store_item.id).exists():
+            return Response(
+                {"detail": "The item is already in the cart; just update it."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if serializer.validated_data.get('quantity') <= 0:
+            return Response(
+                {"detail": "Quantity can not be 0"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer.save(cart=cart)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class OrderViewSet(ModelViewSet):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated, IsOrderOwner]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Order.objects.prefetch_related('items').select_related('customer')
+        return qs.all() if user.is_staff else qs.filter(customer=user)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'Use order/<int:pk>/cancel/; not Delete method'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        order = self.get_object()
+        if not order.is_editable:
+            return Response(
+                {'detail': f'can not cancel the order; it is {order.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        order.status = ORDER_STATUS_CANCELLED
+        order.save()
+        return Response(
+            {'detail': 'Your order cancelled'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def confirm(self, request, pk=None):
+        """confirm order if stock is available and reserve the stock"""
+
+        order = self.get_object()
+        # check status; pending
+        if order.status != ORDER_STATUS_PENDING:
+            return Response(
+                {'detail': f'Can not confirm; it is {order.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+                )
+        # check stock availibility
+        for item in order.items.all():
+            if item.quantity > item.store_item.stock:
+                order.status = ORDER_STATUS_FAILED
+                order.save()
+                return Response(
+                    {'detail': 'Items are out of enough stock. \
+                        Your order failed. Try again'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            # update stock
+            store_item = item.store_item
+            store_item.stock -= item.quantity
+            store_item.save()
+
+        order.status = ORDER_STATUS_PROCESSING
+        order.save()
+        user_email = order.customer.email
+        order_id = order.id
+        send_order_confirmation_email.delay(user_email, order_id)
+        return Response(
+            {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        order = self.get_object()
+        if not order.is_editable:
+            return Response(
+                {'detail': 'Cannot update the order status to failed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        order.status = ORDER_STATUS_FAILED
+        order.save()
+        return Response(
+            {'detail': 'The order rejected'},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsOrderOwner])
+    def pay(self, request, pk=None):
+        order = self.get_object()
+
+        if order.status != ORDER_STATUS_PROCESSING:
+            return Response(
+                {'detail': f"Order status must be processing; \
+                    but it's {order.status}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        payment = Payment.objects.filter(order=order).first()
+        if payment and payment.status == PAYMENT_STATUS_SUCCESS:
+            return Response(
+                {'detail': f"It can not paid. it is already been {payment.status}"},  # either sucess or failed
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if payment and payment.status == PAYMENT_STATUS_PENDING:
+            payment.delete()
+
+        # NOTE: for test generate reference_id
+        reference_id = settings.MERCHANT_ID
+        Payment.objects.create(
+            order=order,
+            status=PAYMENT_STATUS_PENDING,
+            reference_id=reference_id,
+            amount=order.total_price
+        )
+
+        return Response(
+            {
+                'redirect_url': settings.PAYMENT_GATEWAY,
+                'reference_id': reference_id},
+            status=status.HTTP_201_CREATED
+        )
+
+        # NOTE: for production send your merchant_id and get the redirect_url
+
+        # # sending data to payment gateway
+        # payload = {
+        #     'merchant_id': settings.MERCHANT_ID,
+        #     'amount': order.total_price,
+        #     'currency': settings.CURRENCY,
+        #     'callback_url': settings.CALLBACK_URL,
+        #     'description': settings.DESCRIPTION,
+        #     'mobile': request.user.phone,
+        #     'email': request.user.email or None,
+        #     'order_id': str(order.id)
+        # }
+        # try:
+        #     r = requests.post(
+        #         settings.PAYMENT_REQUEST_GATEWAY,
+        #         json=payload,
+        #         headers={
+        #             "Accept": "application/json",
+        #             "Content-type": "application/json"},
+        #         timeout=10
+        #     )
+        # except Exception as e:
+        #     return Response(
+        #         {'detail': f'connection error: {e}'},
+        #         status=status.HTTP_502_BAD_GATEWAY
+        #     )
+
+        # # check the connection response
+        # result = r.json()
+        # if result.get('data', {}).get('code') != 100:
+        #     return Response(
+        #         {
+        #             'detail': 'payment request failed',
+        #             'errors': f'{result.get('errors')}'
+        #         },
+        #         status=status.HTTP_417_EXPECTATION_FAILED
+        #     )
+
+        # # creating Payment object
+        # authority = result.data['authority']
+        # Payment.objects.create(
+        #     order=order,
+        #     status=PAYMENT_STATUS_PENDING,
+        #     reference_id=authority,
+        #     amount=order.total_price
+        # )
+
+        # # redirecting customer to paying url
+        # pay_url = f'{settings.PAYMENT_GATEWAY}{authority}'
+        # return Response(
+        #     {'redirect_url': pay_url},
+        #     status=status.HTTP_201_CREATED
+        # )
+
+
+class PaymentCallbackAPIView(APIView):
+    """
+    This is the callback_url for payment gateway;
+    It parses the query_params in url,
+    calls methods that verify the payment and update the payment in db,
+    returns the appropriate response to the user.
+    """
+    def get(self, request):
+
+        # check query params
+        status_param = request.query_params.get('Status')
+        authority = request.query_params.get('Authority')
+
+        if status_param != 'OK':
+            return Response(
+                {'detail': 'Payment was not successful'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # call the payment service for verifying and updating the payment
+        try:
+            PaymentService.verify_payment(authority)
+        except PaymentNotFoundError:
+            return Response(
+                {'detail': 'The payment not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except PaymentVerificationError as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_417_EXPECTATION_FAILED
+            )
+
+        return Response(
+            {'detail': 'You have successfully paid the bill'},
+            status=status.HTTP_200_OK
+        )
+
+
+class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = ReviewSerializer
+    queryset = Review.objects.select_related('user', 'product').all()
+    permission_classes = [IsReviewOwner]
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)

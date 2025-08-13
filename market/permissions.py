@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticated
 from market.models import StoreAddress
 
 
@@ -38,3 +38,26 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user.is_authenticated and request.user.is_staff
+
+
+class IsAdminOrCreateOnly(BasePermission):
+    def has_permission(self, request, view):
+        if request.method == 'GET':
+            return request.user.is_staff
+        return request.user.is_authenticated
+
+
+class IsCartOwner(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return True if request.user.is_staff \
+            else request.user == obj.cart.customer
+
+
+class IsOrderOwner(IsAuthenticated):
+    def has_object_permission(self, request, view, obj):
+        return request.user.is_staff or obj.customer == request.user
+
+
+class IsReviewOwner(IsAuthenticated):
+    def has_object_permission(self, request, view, obj):
+        return request.user.is_staff or obj.user == request.user

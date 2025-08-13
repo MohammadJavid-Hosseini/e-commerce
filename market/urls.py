@@ -6,8 +6,13 @@ from market.views import (
     CategoryViewSet,
     ProductViewSet,
     StoreItemViewSet,
-    SellerDashBoardAPIView
-    )
+    SellerDashBoardAPIView,
+    CartViewSet,
+    CartItemViewSet,
+    OrderViewSet,
+    ReviewDetailAPIView,
+    PaymentCallbackAPIView,
+)
 
 router = DefaultRouter()
 router.register('store', StoreViewSet, 'store')
@@ -15,9 +20,15 @@ router.register('store_address', StoreAddressViewSet, 'store_address')
 router.register('category', CategoryViewSet, 'category')
 router.register('product', ProductViewSet, 'product')
 router.register('store_item', StoreItemViewSet, 'store_item')
+router.register('cart', CartViewSet, 'cart')
+router.register('cart_item', CartItemViewSet, 'cart_item')
+router.register('order', OrderViewSet, 'order')
 
 urlpatterns = [
-    path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard')
+    path('dashboard/', SellerDashBoardAPIView.as_view(), name='dashboard'),
+    path('reviews/<int:pk>/', ReviewDetailAPIView.as_view(), name='reviews'),
+    path('payment/verify/', PaymentCallbackAPIView.as_view(),
+         name='payment-verify')
 ]
 
 
