@@ -214,9 +214,10 @@ PAYMENT_VERIFY_GATEWAY = config('PAYMENT_VERIFY_GATEWAY')
 DESCRIPTION = "AsanForush E-commerce"
 CURRENCY = 'IRR'
 CALLBACK_URL = '/api/market/payment/verify/'
-# NOTE: for production
+# NOTE: for production, you need to buy it from Zarinpal
 # MERCHANT_ID = config('MERCHANT_ID')
 # NOTE: for test
+# HACK: once you bought a Zarinpal plan, change this to real merchant_id
 M_ID = str(uuid.uuid4())
 MERCHANT_ID = 'S'+M_ID[1:]
 

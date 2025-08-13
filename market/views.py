@@ -327,11 +327,15 @@ class CartItemViewSet(ModelViewSet):
             )
         serializer.save(cart=cart)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # FIXME: check the product availibility (stock) in creating cart item.
+        #       although checked when order creation, it is needed here, too.
+        # OPTIMIZE: move the create logic to serializer if no good reason here.
 
 
 class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated, IsOrderOwner]
+    # TODO: set the ordering. for list, updated_at is the key
 
     def get_queryset(self):
         user = self.request.user
@@ -342,6 +346,7 @@ class OrderViewSet(ModelViewSet):
         return Response(
             {'detail': 'Use order/<int:pk>/cancel/; not Delete method'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    # FIXME: if the order: cancelled, delivered, failed it's OK to delete.
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):

@@ -23,7 +23,7 @@ class IsSeller(BasePermission):
 
 
 class IsSellerOrReadOnly(BasePermission):
-    """Only sellers access not-saved methods"""
+    """Only sellers access non SAFE METHODS"""
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return True
@@ -56,6 +56,11 @@ class IsCartOwner(BasePermission):
 class IsOrderOwner(IsAuthenticated):
     def has_object_permission(self, request, view, obj):
         return request.user.is_staff or obj.customer == request.user
+
+
+class IsOrderItemSeller(IsAuthenticated):
+    def has_object_permission(self, request, view, obj):
+        return obj.store_item.store.seller == request.user
 
 
 class IsReviewOwner(IsAuthenticated):
