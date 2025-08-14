@@ -18,12 +18,27 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.permissions import AllowAny
+from drf_yasg import openapi
+from drf_yasg.views import get_schema_view
+
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="E-commerce APIs",
+        default_version="v1",
+        description="API endpoints of e-commerce project"
+    ),
+    public=True,
+    permission_classes=[AllowAny]
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("__debug__/", include("debug_toolbar.urls")),
     path('api/account/', include('account.urls')),
     path('api/market/', include('market.urls')),
+    path('swagger/', schema_view.with_ui(), name='schema-swagger-ui')
 ]
 
 if settings.DEBUG:

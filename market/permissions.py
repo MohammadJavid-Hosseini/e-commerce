@@ -1,4 +1,8 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticated
+from rest_framework.permissions import (
+    BasePermission,
+    SAFE_METHODS,
+    IsAuthenticated
+)
 from market.models import StoreAddress
 
 
