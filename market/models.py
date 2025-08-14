@@ -239,7 +239,7 @@ class OrderItem(TimeStampedModel, SoftDeleteModel):
         max_length=12, choices=ORDERITEM_CHOICES, default=ORDER_STATUS_PENDING)
 
     def __str__(self):
-        return f"{self.order} - {self.store_item.name}"
+        return f"{self.order} - {self.store_item.product.name}"
 
 
 class Payment(TimeStampedModel, SoftDeleteModel):

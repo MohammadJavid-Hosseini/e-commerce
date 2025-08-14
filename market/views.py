@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
@@ -9,10 +10,26 @@ from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
-    Review, Payment, ORDER_STATUS_CANCELLED, ORDER_STATUS_PENDING,
-    ORDER_STATUS_PROCESSING, ORDER_STATUS_FAILED, PAYMENT_STATUS_PENDING,
-    PAYMENT_STATUS_SUCCESS,
+    Store,
+    StoreAddress,
+    Category,
+    Product,
+    StoreItem,
+    Cart,
+    CartItem,
+    Order,
+    OrderItem,
+    Review,
+    Payment,
+    ORDERITEM_STATUS_PENDING,
+    ORDERITEM_STATUS_REJECTED,
+    ORDERITEM_STATUS_CONFIRMED,
+    ORDER_STATUS_CANCELLED,
+    ORDER_STATUS_PENDING,
+    ORDER_STATUS_PROCESSING,
+    ORDER_STATUS_FAILED,
+    PAYMENT_STATUS_PENDING,
+    PAYMENT_STATUS_SUCCESS
     )
 from market.serializers import (
     StoreSerializer,
@@ -26,7 +43,6 @@ from market.serializers import (
     MiniCartItemSerializer,
     OrderSerializer,
     ReviewSerializer,
-    PaymentSerializer,
     )
 from market.permissions import (
     IsStoreOwner,
@@ -36,12 +52,17 @@ from market.permissions import (
     IsCartOwner,
     IsOrderOwner,
     IsReviewOwner,
-    )
+    IsOrderItemSeller,
+)
 from market.services.mixins import (
     AddActivateEndpointMixin,
     CachableQuerySetMixin
 )
 from market.services.payment_service import PaymentService
+from market.services.order_item_actions import (
+    confirm_order_item,
+    reject_order_item
+)
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 from market.filters import (
     ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
@@ -50,6 +71,8 @@ from market.custom_exceptions import (
     PaymentNotFoundError,
     PaymentVerificationError
 )
+
+
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
     pagination_class = SmallPaginatioinSettings
@@ -370,21 +393,29 @@ class OrderViewSet(ModelViewSet):
         if order.status != ORDER_STATUS_PENDING:
             return Response(
                 {'detail': f'Can not confirm; it is {order.status}'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_409_CONFLICT
                 )
-        # check stock availibility
-        for item in order.items.all():
-            if item.quantity > item.store_item.stock:
-                order.status = ORDER_STATUS_FAILED
-                order.save()
-                return Response(
-                    {'detail': 'Items are out of enough stock. \
-                        Your order failed. Try again'},
-                    status=status.HTTP_400_BAD_REQUEST)
-            # update stock
-            store_item = item.store_item
-            store_item.stock -= item.quantity
-            store_item.save()
+
+        # check itmes' status
+        rejected_list = [
+            item.id for item in order.items.all() if item.status == ORDERITEM_STATUS_REJECTED]
+        pending_list = [
+            item.id for item in order.items.all() if item.status == ORDERITEM_STATUS_PENDING]
+
+        if len(rejected_list) > 0:
+            order.status = ORDER_STATUS_FAILED
+            order.save()
+
+            return Response(
+                {'detail': f'order failed; item rejections: {rejected_list}'},
+                status=status.HTTP_409_CONFLICT
+            )
+
+        if len(pending_list) > 0:
+            return Response(
+                {'detail': f'{pending_list} still pending'},
+                status=status.HTTP_425_TOO_EARLY
+            )
 
         order.status = ORDER_STATUS_PROCESSING
         order.save()
@@ -499,6 +530,41 @@ class OrderViewSet(ModelViewSet):
         #     {'redirect_url': pay_url},
         #     status=status.HTTP_201_CREATED
         # )
+
+
+class OrderItemConfirmationView(APIView):
+    """confirm the orderitem alongside stock checking"""
+    permission_classes = [IsOrderItemSeller]
+
+    def post(self, request, pk=None):
+        order_item = get_object_or_404(OrderItem, id=pk)
+
+        # NOTE: since it is not a generic or a viewset, \
+        # you have to manually check the object-level permissions
+        self.check_object_permissions(request, order_item)
+
+        # call confirmation service
+        try:
+            confirm_order_item(order_item)
+        except Exception as e:
+            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'confirmed'}, status=status.HTTP_200_OK)
+
+
+class OrderItemRejectionView(APIView):
+    """reject the OrderItem manually"""
+    def post(self, request, pk=None):
+        order_item = get_object_or_404(OrderItem, id=pk)
+        self.check_object_permissions(request, order_item)
+
+        # call rejection service
+        try:
+            reject_order_item(order_item)
+        except Exception as e:
+            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Rejected'}, status=status.HTTP_200_OK)
 
 
 class PaymentCallbackAPIView(APIView):

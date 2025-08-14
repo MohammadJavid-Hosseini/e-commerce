@@ -4,9 +4,9 @@
 #          when ready, customer orders (an order is created)
 #       2. seller confirms the OrderItem (availibility checked),
 #          or rejects it for any reason.
-#       3. if all items are confired, admin confirms the Order \
-#          and changes the status to processing,
-#          otherwise, fails the Order and updates order explanation.
+#       3. when admin tries to confirm the order, if all items are already \
+#          confirmed, order's status changes to processing,
+#          otherwise, to failed. admin, in turn, updates order explanation.
 #       4. customer sees the status of order in its orders list,
 #          if any order is rejected, chenges the quantity and tries again.
 #          if the problem is not quantity and there's something wrong with \
@@ -16,6 +16,6 @@
 #        2. Order model: add an explanation field to order object \
 #           (to say why rejected)
 #        3. OrderItem view: for OrderItem we need views for single and mass \
-#           cofirmation/reject, only be the seller. stock checking happens \
-#           here, yet seller can rejects it manually for other reasons
+#           cofirmation/reject, only by the seller. stock checking happens \
+#           here, yet seller can reject it manually for other reasons
 #        4. Order view: single and mass confirmation for admin.
