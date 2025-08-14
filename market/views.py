@@ -23,7 +23,6 @@ from market.models import (
     Payment,
     ORDERITEM_STATUS_PENDING,
     ORDERITEM_STATUS_REJECTED,
-    ORDERITEM_STATUS_CONFIRMED,
     ORDER_STATUS_CANCELLED,
     ORDER_STATUS_PENDING,
     ORDER_STATUS_PROCESSING,
@@ -63,7 +62,10 @@ from market.services.order_item_actions import (
     confirm_order_item,
     reject_order_item
 )
-from market.services.dashboard_services import order_items_data
+from market.services.dashboard_services import (
+    order_items_data,
+    seller_rates_data,
+)
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 from market.filters import (
     ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
@@ -260,8 +262,6 @@ class StoreItemViewSet(ModelViewSet,
         self.clean_cached_qs('all_items', 'this_store_items')
 
         return response
-
-
 
 
 class CartViewSet(ModelViewSet):
@@ -606,26 +606,31 @@ class DashboardViewSet(ViewSet):
 
     @action(detail=False, methods=['get'])
     def review(self, request):
-        """shows all seller's stuff e.g.stores, order_items"""
+        """shows all seller's counts and rates"""
 
+        # fetch seller and their stores
         user = request.user
-        store_count = Store.objects.filter(seller=user).count()
-        store_items = StoreItem.objects.filter(store__seller=user)
-        item_count = store_items.count()
-        active_item_count = store_items.filter(is_active=True).count()
-
-        # fetch stores
         store_qs = Store.objects.filter(seller=user)
         stores = [store for store in store_qs.all()]
+
+        # fetch statistics for seller and their stores
+        seller_rates = seller_rates_data(user, stores)
+
+        return Response(
+            {'Seller': user.username, 'Stores Review': seller_rates},
+            status=status.HTTP_200_OK
+            )
+
+    @action(detail=False, methods=['get'])
+    def order_items(self, request):
+        """show status-based categories of order items per store"""
+
+        # fetch stores
+        stores = list(Store.objects.filter(seller=request.user).all())
 
         # fetch order items per store
         order_items = order_items_data(stores, request)
 
-        response = {
-            'stores': store_count,
-            'total_store_items': item_count,
-            'approved_store_items':  active_item_count,
-            'order_items_per_store': order_items
-            }
-
-        return Response(response, status=status.HTTP_200_OK)
+        return Response(
+            order_items, status=status.HTTP_200_OK
+        )
