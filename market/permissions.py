@@ -16,10 +16,11 @@ class IsSellerOfAddress(BasePermission):
         return hasattr(obj, 'store') and obj.store.seller == request.user
 
 
-class IsSeller(BasePermission):
+class IsSeller(IsAuthenticated):
     """Check if the user is seller"""
     def has_permission(self, request, view):
-        return request.user.is_seller is True
+        return super().has_permission(request, view) and \
+            request.user.is_seller is True
 
 
 class IsSellerOrReadOnly(BasePermission):

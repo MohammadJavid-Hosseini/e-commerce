@@ -1,6 +1,6 @@
 from django.conf import settings
-from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
@@ -59,8 +59,8 @@ from market.services.mixins import (
 )
 from market.services.payment_service import PaymentService
 from market.services.order_item_actions import (
-    confirm_order_item,
-    reject_order_item
+    confirm_order_items,
+    reject_order_items
 )
 from market.services.dashboard_services import (
     order_items_data,
@@ -517,41 +517,6 @@ class OrderViewSet(ModelViewSet):
         # )
 
 
-class OrderItemConfirmationView(APIView):
-    """confirm the orderitem alongside stock checking"""
-    permission_classes = [IsOrderItemSeller]
-
-    def post(self, request, pk=None):
-        order_item = get_object_or_404(OrderItem, id=pk)
-
-        # NOTE: since it is not a generic or a viewset, \
-        # you have to manually check the object-level permissions
-        self.check_object_permissions(request, order_item)
-
-        # call confirmation service
-        try:
-            confirm_order_item(order_item)
-        except Exception as e:
-            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
-
-        return Response({'detail': 'confirmed'}, status=status.HTTP_200_OK)
-
-
-class OrderItemRejectionView(APIView):
-    """reject the OrderItem manually"""
-    def post(self, request, pk=None):
-        order_item = get_object_or_404(OrderItem, id=pk)
-        self.check_object_permissions(request, order_item)
-
-        # call rejection service
-        try:
-            reject_order_item(order_item)
-        except Exception as e:
-            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
-
-        return Response({'detail': 'Rejected'}, status=status.HTTP_200_OK)
-
-
 class PaymentCallbackAPIView(APIView):
     """
     This is the callback_url for payment gateway;
@@ -634,3 +599,59 @@ class DashboardViewSet(ViewSet):
         return Response(
             order_items, status=status.HTTP_200_OK
         )
+
+    def _get_order_items_from_request(self, request):
+
+        # check request's data
+        ids = request.data.get('ids', [])
+        if not ids:
+            raise ValidationError("You need to pass a list of ids")
+
+        # find items
+        order_items = list(
+            OrderItem.objects.filter(id__in=ids).select_related('store_item'))
+
+        for item in order_items:
+            self.check_object_permissions(request, item)
+
+        return ids, order_items
+
+    @action(detail=False, methods=['post'])
+    def confirm_items(self, request):
+        """confirm multiple orderitems in one request"""
+
+        try:
+            ids, order_items = self._get_order_items_from_request(request)
+        except ValidationError as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+
+        # call confirmation service
+        try:
+            confirm_order_items(order_items)
+        except Exception as e:
+            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'confirmed': f'{len(order_items)} order items confirmed',
+                'missed': f'{len(set(ids)) - len(order_items)} ids do not exist'
+                },
+            status=status.HTTP_200_OK
+            )
+
+    @action(detail=False, methods=['post'])
+    def reject_item(self, request):
+        """reject multiple order items in one request"""
+
+        try:
+            ids, order_items = self._get_order_items_from_request(request)
+        except ValidationError as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+
+        # call rejection service
+        try:
+            reject_order_items(order_items)
+        except Exception as e:
+            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Rejected'}, status=status.HTTP_200_OK)
