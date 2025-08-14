@@ -12,10 +12,7 @@
 #          if the problem is not quantity and there's something wrong with \
 #          the store, there is nothing that customer can do.
 
-# FIXME: 1. OrderItem model: add a status field (confirmed, rejected, pending)
-#        2. Order model: add an explanation field to order object \
-#           (to say why rejected)
-#        3. OrderItem view: for OrderItem we need views for single and mass \
+# FIXME: 1. OrderItem view: for OrderItem we need views for single and mass \
 #           cofirmation/reject, only by the seller. stock checking happens \
 #           here, yet seller can reject it manually for other reasons
-#        4. Order view: single and mass confirmation for admin.
+#        2. Order view: single and mass confirmation for admin.

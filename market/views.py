@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from market.models import (
     Store,
@@ -63,6 +63,7 @@ from market.services.order_item_actions import (
     confirm_order_item,
     reject_order_item
 )
+from market.services.dashboard_services import order_items_data
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 from market.filters import (
     ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
@@ -261,22 +262,6 @@ class StoreItemViewSet(ModelViewSet,
         return response
 
 
-class SellerDashBoardAPIView(APIView):
-    """Indicate seller-related stores, categories, and products"""
-
-    def get(self, request):
-        user = request.user
-        store_count = Store.objects.filter(seller=user).count()
-        store_items = StoreItem.objects.filter(store__seller=user)
-        item_count = store_items.count()
-        active_item_count = store_items.filter(is_active=True).count()
-
-        response = {
-            'stores': store_count,
-            'total_store_items': item_count,
-            'approved_store_items':  active_item_count
-            }
-        return Response(response, status=status.HTTP_200_OK)
 
 
 class CartViewSet(ModelViewSet):
@@ -613,3 +598,34 @@ class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class DashboardViewSet(ViewSet):
+    """A controlling manager for all seller stuff"""
+    permission_classes = [IsSeller]
+
+    @action(detail=False, methods=['get'])
+    def review(self, request):
+        """shows all seller's stuff e.g.stores, order_items"""
+
+        user = request.user
+        store_count = Store.objects.filter(seller=user).count()
+        store_items = StoreItem.objects.filter(store__seller=user)
+        item_count = store_items.count()
+        active_item_count = store_items.filter(is_active=True).count()
+
+        # fetch stores
+        store_qs = Store.objects.filter(seller=user)
+        stores = [store for store in store_qs.all()]
+
+        # fetch order items per store
+        order_items = order_items_data(stores, request)
+
+        response = {
+            'stores': store_count,
+            'total_store_items': item_count,
+            'approved_store_items':  active_item_count,
+            'order_items_per_store': order_items
+            }
+
+        return Response(response, status=status.HTTP_200_OK)

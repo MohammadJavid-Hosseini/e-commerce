@@ -281,7 +281,8 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 class OrderItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
     class Meta:
         model = OrderItem
-        fields = ['store_item', 'quantity']
+        fields = ['id', 'store_item', 'quantity']
+        read_only_fields = ['id']
 
     def get_fields(self):
         fields = super().get_fields()
