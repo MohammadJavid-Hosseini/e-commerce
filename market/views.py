@@ -407,6 +407,7 @@ class OrderViewSet(ModelViewSet):
         user_email = order.customer.email
         order_id = order.id
         send_order_confirmation_email.delay(user_email, order_id)
+
         return Response(
             {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)
 

@@ -15,7 +15,7 @@ services:
   
   web:
     build: .
-    command: gunicorn --bind 0.0.0.0:8000 --workers 3 maktab_django_126.wsgi:application
+    # command: gunicorn --bind 0.0.0.0:8000 --workers 3 maktab_django_126.wsgi:application
     volumes:
       - shared:/shared
     ports:
