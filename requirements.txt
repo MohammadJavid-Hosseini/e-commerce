@@ -18,8 +18,11 @@ django-filter==25.1
 django-redis==6.0.0
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
+drf-yasg==1.21.10
 executing==2.2.0
+gunicorn==23.0.0
 idna==3.10
+inflection==0.5.1
 ipython==9.4.0
 ipython_pygments_lexers==1.1.1
 jedi==0.19.2
@@ -38,6 +41,8 @@ Pygments==2.19.2
 PyJWT==2.9.0
 python-dateutil==2.9.0.post0
 python-decouple==3.8
+pytz==2025.2
+PyYAML==6.0.2
 redis==6.4.0
 requests==2.32.4
 six==1.17.0
@@ -45,6 +50,7 @@ sqlparse==0.5.3
 stack-data==0.6.3
 traitlets==5.14.3
 tzdata==2025.2
+uritemplate==4.2.0
 urllib3==2.5.0
 vine==5.1.0
 wcwidth==0.2.13
