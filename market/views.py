@@ -51,7 +51,6 @@ from market.permissions import (
     IsCartOwner,
     IsOrderOwner,
     IsReviewOwner,
-    IsOrderItemSeller,
 )
 from market.services.mixins import (
     AddActivateEndpointMixin,
@@ -383,9 +382,11 @@ class OrderViewSet(ModelViewSet):
 
         # check itmes' status
         rejected_list = [
-            item.id for item in order.items.all() if item.status == ORDERITEM_STATUS_REJECTED]
+            item.id for item in order.items.all()
+            if item.status == ORDERITEM_STATUS_REJECTED]
         pending_list = [
-            item.id for item in order.items.all() if item.status == ORDERITEM_STATUS_PENDING]
+            item.id for item in order.items.all()
+            if item.status == ORDERITEM_STATUS_PENDING]
 
         if len(rejected_list) > 0:
             order.status = ORDER_STATUS_FAILED
@@ -440,13 +441,15 @@ class OrderViewSet(ModelViewSet):
         payment = Payment.objects.filter(order=order).first()
         if payment and payment.status == PAYMENT_STATUS_SUCCESS:
             return Response(
-                {'detail': f"It can not paid. it is already been {payment.status}"},  # either sucess or failed
+                # either sucess or failed
+                {'detail': f"It can not paid. \
+                    it is already been {payment.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if payment and payment.status == PAYMENT_STATUS_PENDING:
             payment.delete()
 
-        # NOTE: for test generate reference_id
+        # NOTE: for test
         reference_id = settings.MERCHANT_ID
         Payment.objects.create(
             order=order,
@@ -635,7 +638,8 @@ class DashboardViewSet(ViewSet):
         return Response(
             {
                 'confirmed': f'{len(order_items)} order items confirmed',
-                'missed': f'{len(set(ids)) - len(order_items)} ids do not exist'
+                'missed': f'{len(set(ids)) - len(order_items)} \
+                    ids do not exist'
                 },
             status=status.HTTP_200_OK
             )
