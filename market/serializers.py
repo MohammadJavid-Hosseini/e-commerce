@@ -184,8 +184,11 @@ class CartItemSerializer(serializers.ModelSerializer,
         quantity = validated_data.get('quantity')
         if quantity <= 0:
             raise serializers.ValidationError("Quantity must not be 0")
+        instance.quantity = quantity
+        instance.save()
 
-    # NOTE: when creating a cart item, if quantity is not passed set it 1
+        return instance
+    # OPTIMIZE: when creating a cart item, if quantity is not passed set it 1
 
 
 class MiniCartItemSerializer (serializers.ModelSerializer,
@@ -281,7 +284,8 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 class OrderItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
     class Meta:
         model = OrderItem
-        fields = ['store_item', 'quantity']
+        fields = ['id', 'store_item', 'quantity']
+        read_only_fields = ['id']
 
     def get_fields(self):
         fields = super().get_fields()

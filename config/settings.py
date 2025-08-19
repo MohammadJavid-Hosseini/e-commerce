@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+import os
 import uuid
 from pathlib import Path
 from decouple import config
@@ -28,7 +29,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG")
 
-ALLOWED_HOSTS = ['testserver', 'localhost']
+ALLOWED_HOSTS = ['testserver', '127.0.0.1', 'localhost', 'e-commerce.test']
 
 
 # Application definition
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     'django_extensions',
+    'drf_yasg',
     'corsheaders',  # for handling ports connection with front
     'rest_framework',
     'rest_framework_simplejwt',
@@ -135,6 +137,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -214,9 +217,10 @@ PAYMENT_VERIFY_GATEWAY = config('PAYMENT_VERIFY_GATEWAY')
 DESCRIPTION = "AsanForush E-commerce"
 CURRENCY = 'IRR'
 CALLBACK_URL = '/api/market/payment/verify/'
-# NOTE: for production
+# NOTE: for production, you need to buy it from Zarinpal
 # MERCHANT_ID = config('MERCHANT_ID')
 # NOTE: for test
+# HACK: once you bought a Zarinpal plan, change this to real merchant_id
 M_ID = str(uuid.uuid4())
 MERCHANT_ID = 'S'+M_ID[1:]
 

@@ -1,18 +1,34 @@
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
+from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart, CartItem, Order,
-    Review, Payment, ORDER_STATUS_CANCELLED, ORDER_STATUS_PENDING,
-    ORDER_STATUS_PROCESSING, ORDER_STATUS_FAILED, PAYMENT_STATUS_PENDING,
-    PAYMENT_STATUS_SUCCESS,
+    Store,
+    StoreAddress,
+    Category,
+    Product,
+    StoreItem,
+    Cart,
+    CartItem,
+    Order,
+    OrderItem,
+    Review,
+    Payment,
+    ORDERITEM_STATUS_PENDING,
+    ORDERITEM_STATUS_REJECTED,
+    ORDER_STATUS_CANCELLED,
+    ORDER_STATUS_PENDING,
+    ORDER_STATUS_PROCESSING,
+    ORDER_STATUS_FAILED,
+    PAYMENT_STATUS_PENDING,
+    PAYMENT_STATUS_SUCCESS
     )
 from market.serializers import (
     StoreSerializer,
@@ -26,7 +42,6 @@ from market.serializers import (
     MiniCartItemSerializer,
     OrderSerializer,
     ReviewSerializer,
-    PaymentSerializer,
     )
 from market.permissions import (
     IsStoreOwner,
@@ -36,12 +51,20 @@ from market.permissions import (
     IsCartOwner,
     IsOrderOwner,
     IsReviewOwner,
-    )
+)
 from market.services.mixins import (
     AddActivateEndpointMixin,
     CachableQuerySetMixin
 )
 from market.services.payment_service import PaymentService
+from market.services.order_item_actions import (
+    confirm_order_items,
+    reject_order_items
+)
+from market.services.dashboard_services import (
+    order_items_data,
+    seller_rates_data,
+)
 from market.utlis import SmallPaginatioinSettings, LargePaginatioinSettings
 from market.filters import (
     ProductFilter, CategoryFilter, StoreFilter, StoreItemFilter)
@@ -50,6 +73,8 @@ from market.custom_exceptions import (
     PaymentNotFoundError,
     PaymentVerificationError
 )
+
+
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
     pagination_class = SmallPaginatioinSettings
@@ -238,24 +263,6 @@ class StoreItemViewSet(ModelViewSet,
         return response
 
 
-class SellerDashBoardAPIView(APIView):
-    """Indicate seller-related stores, categories, and products"""
-
-    def get(self, request):
-        user = request.user
-        store_count = Store.objects.filter(seller=user).count()
-        store_items = StoreItem.objects.filter(store__seller=user)
-        item_count = store_items.count()
-        active_item_count = store_items.filter(is_active=True).count()
-
-        response = {
-            'stores': store_count,
-            'total_store_items': item_count,
-            'approved_store_items':  active_item_count
-            }
-        return Response(response, status=status.HTTP_200_OK)
-
-
 class CartViewSet(ModelViewSet):
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
@@ -327,11 +334,15 @@ class CartItemViewSet(ModelViewSet):
             )
         serializer.save(cart=cart)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # FIXME: check the product availibility (stock) in creating cart item.
+        #       although checked when order creation, it is needed here, too.
+        # OPTIMIZE: move the create logic to serializer if no good reason here.
 
 
 class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated, IsOrderOwner]
+    # TODO: set the ordering. for list, updated_at is the key
 
     def get_queryset(self):
         user = self.request.user
@@ -342,6 +353,7 @@ class OrderViewSet(ModelViewSet):
         return Response(
             {'detail': 'Use order/<int:pk>/cancel/; not Delete method'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    # FIXME: if the order: cancelled, delivered, failed it's OK to delete.
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -365,27 +377,38 @@ class OrderViewSet(ModelViewSet):
         if order.status != ORDER_STATUS_PENDING:
             return Response(
                 {'detail': f'Can not confirm; it is {order.status}'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_409_CONFLICT
                 )
-        # check stock availibility
-        for item in order.items.all():
-            if item.quantity > item.store_item.stock:
-                order.status = ORDER_STATUS_FAILED
-                order.save()
-                return Response(
-                    {'detail': 'Items are out of enough stock. \
-                        Your order failed. Try again'},
-                    status=status.HTTP_400_BAD_REQUEST)
-            # update stock
-            store_item = item.store_item
-            store_item.stock -= item.quantity
-            store_item.save()
+
+        # check itmes' status
+        rejected_list = [
+            item.id for item in order.items.all()
+            if item.status == ORDERITEM_STATUS_REJECTED]
+        pending_list = [
+            item.id for item in order.items.all()
+            if item.status == ORDERITEM_STATUS_PENDING]
+
+        if len(rejected_list) > 0:
+            order.status = ORDER_STATUS_FAILED
+            order.save()
+
+            return Response(
+                {'detail': f'order failed; item rejections: {rejected_list}'},
+                status=status.HTTP_409_CONFLICT
+            )
+
+        if len(pending_list) > 0:
+            return Response(
+                {'detail': f'{pending_list} still pending'},
+                status=status.HTTP_425_TOO_EARLY
+            )
 
         order.status = ORDER_STATUS_PROCESSING
         order.save()
         user_email = order.customer.email
         order_id = order.id
         send_order_confirmation_email.delay(user_email, order_id)
+
         return Response(
             {'detail': 'It is confirmed'}, status=status.HTTP_200_OK)
 
@@ -418,13 +441,15 @@ class OrderViewSet(ModelViewSet):
         payment = Payment.objects.filter(order=order).first()
         if payment and payment.status == PAYMENT_STATUS_SUCCESS:
             return Response(
-                {'detail': f"It can not paid. it is already been {payment.status}"},  # either sucess or failed
+                # either sucess or failed
+                {'detail': f"It can not paid. \
+                    it is already been {payment.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if payment and payment.status == PAYMENT_STATUS_PENDING:
             payment.delete()
 
-        # NOTE: for test generate reference_id
+        # NOTE: for test
         reference_id = settings.MERCHANT_ID
         Payment.objects.create(
             order=order,
@@ -542,3 +567,96 @@ class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class DashboardViewSet(ViewSet):
+    """A controlling manager for all seller stuff"""
+    permission_classes = [IsSeller]
+
+    @action(detail=False, methods=['get'])
+    def review(self, request):
+        """shows all seller's counts and rates"""
+
+        # fetch seller and their stores
+        user = request.user
+        store_qs = Store.objects.filter(seller=user)
+        stores = [store for store in store_qs.all()]
+
+        # fetch statistics for seller and their stores
+        seller_rates = seller_rates_data(user, stores)
+
+        return Response(
+            {'Seller': user.username, 'Stores Review': seller_rates},
+            status=status.HTTP_200_OK
+            )
+
+    @action(detail=False, methods=['get'])
+    def order_items(self, request):
+        """show status-based categories of order items per store"""
+
+        # fetch stores
+        stores = list(Store.objects.filter(seller=request.user).all())
+
+        # fetch order items per store
+        order_items = order_items_data(stores, request)
+
+        return Response(
+            order_items, status=status.HTTP_200_OK
+        )
+
+    def _get_order_items_from_request(self, request):
+
+        # check request's data
+        ids = request.data.get('ids', [])
+        if not ids:
+            raise ValidationError("You need to pass a list of ids")
+
+        # find items
+        order_items = list(
+            OrderItem.objects.filter(id__in=ids).select_related('store_item'))
+
+        for item in order_items:
+            self.check_object_permissions(request, item)
+
+        return ids, order_items
+
+    @action(detail=False, methods=['post'])
+    def confirm_items(self, request):
+        """confirm multiple orderitems in one request"""
+
+        try:
+            ids, order_items = self._get_order_items_from_request(request)
+        except ValidationError as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+
+        # call confirmation service
+        try:
+            confirm_order_items(order_items)
+        except Exception as e:
+            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'confirmed': f'{len(order_items)} order items confirmed',
+                'missed': f'{len(set(ids)) - len(order_items)} \
+                    ids do not exist'
+                },
+            status=status.HTTP_200_OK
+            )
+
+    @action(detail=False, methods=['post'])
+    def reject_item(self, request):
+        """reject multiple order items in one request"""
+
+        try:
+            ids, order_items = self._get_order_items_from_request(request)
+        except ValidationError as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+
+        # call rejection service
+        try:
+            reject_order_items(order_items)
+        except Exception as e:
+            return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Rejected'}, status=status.HTTP_200_OK)

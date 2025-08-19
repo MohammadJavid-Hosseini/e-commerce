@@ -1,4 +1,8 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticated
+from rest_framework.permissions import (
+    BasePermission,
+    SAFE_METHODS,
+    IsAuthenticated
+)
 from market.models import StoreAddress
 
 
@@ -16,14 +20,15 @@ class IsSellerOfAddress(BasePermission):
         return hasattr(obj, 'store') and obj.store.seller == request.user
 
 
-class IsSeller(BasePermission):
+class IsSeller(IsAuthenticated):
     """Check if the user is seller"""
     def has_permission(self, request, view):
-        return request.user.is_seller is True
+        return super().has_permission(request, view) and \
+            request.user.is_seller is True
 
 
 class IsSellerOrReadOnly(BasePermission):
-    """Only sellers access not-saved methods"""
+    """Only sellers access non SAFE METHODS"""
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return True
@@ -56,6 +61,11 @@ class IsCartOwner(BasePermission):
 class IsOrderOwner(IsAuthenticated):
     def has_object_permission(self, request, view, obj):
         return request.user.is_staff or obj.customer == request.user
+
+
+class IsOrderItemSeller(IsAuthenticated):
+    def has_object_permission(self, request, view, obj):
+        return obj.store_item.store.seller == request.user
 
 
 class IsReviewOwner(IsAuthenticated):

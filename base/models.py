@@ -86,6 +86,7 @@ class SoftDeleteModel(models.Model):
 
 
 class BassAddressModel(models.Model):
+    """base model with common fields between UserAddress and StoreAddress"""
     label = models.CharField(max_length=255)
     address_line_1 = models.TextField(max_length=500)
     address_line_2 = models.TextField(max_length=500)

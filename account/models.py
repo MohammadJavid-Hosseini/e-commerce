@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-# from django.contrib.auth.models import UserManager
 from base.models import (
     TimeStampedModel, SoftDeleteModel, SoftDeleteUserManager,
     AllUserManager,
