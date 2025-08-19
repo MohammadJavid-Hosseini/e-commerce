@@ -278,6 +278,14 @@ class CartTests(APITestCase):
         self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
         create_res = self.client.post(
             reverse('order-list'), {"address": self.user_address.id}, 'json')
+        self.client.logout()
+
+        # confirm items
+        self.client.force_authenticate(user=self.seller)
+        item_id = create_res.data['items'][0]['id']
+        self.client.post(
+            reverse('dashboard-confirm-items'), {'ids': [item_id]}, 'json')
+        self.client.logout()
 
         # confirm the order
         order_id = create_res.data['id']
@@ -291,7 +299,7 @@ class CartTests(APITestCase):
             reverse('order-pay', kwargs={'pk': order_id}))
 
         # check the result
-        payment = Payment.objects.get(order_id=order_id)
+        payment = Payment.objects.get(order=order_id)
         order_price = create_res.data['total_price']
         self.assertEqual(pay_res.status_code, 201)
         self.assertIn('redirect_url', pay_res.data)
@@ -311,6 +319,14 @@ class CartTests(APITestCase):
         self.create_cart([{"store_item": self.store_item_1.id, "quantity": 2}])
         create_res = self.client.post(
             reverse('order-list'), {"address": self.user_address.id}, 'json')
+        self.client.logout()
+
+        # confirm items
+        self.client.force_authenticate(user=self.seller)
+        item_id = create_res.data['items'][0]['id']
+        self.client.post(
+            reverse('dashboard-confirm-items'), {'ids': [item_id]}, 'json')
+        self.client.logout()
 
         # confirm the order
         order_id = create_res.data['id']
@@ -329,7 +345,7 @@ class CartTests(APITestCase):
         mock_payment_gateway_verify.return_value = {
             "data": {
                 "code": 100,
-                "message": "Verified",
+                "message": "Paid",
                 "ref_id": '201',
                 "card_pan": "502229******5995",
                 "card_hash": "hash-value",
@@ -352,3 +368,6 @@ class CartTests(APITestCase):
         self.assertEqual(payment.card_pan, "502229******5995")
         self.assertEqual(payment.status, PAYMENT_STATUS_SUCCESS)
         self.assertEqual(payment.transaction_id, '201')
+        order = Order.objects.get(id=order_id)
+        order.refresh_from_db()
+        self.assertEqual(order.status, ORDER_STATUS_DELIVERED)

@@ -1,3 +1,4 @@
+import requests
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.exceptions import ValidationError
@@ -373,6 +374,13 @@ class OrderViewSet(ModelViewSet):
         """confirm order if stock is available and reserve the stock"""
 
         order = self.get_object()
+        # check duplication
+        if order.status == ORDER_STATUS_PROCESSING:
+            return Response(
+                {'detail': 'It is already confirmed.'},
+                status=status.HTTP_409_CONFLICT
+                )
+
         # check status; pending
         if order.status != ORDER_STATUS_PENDING:
             return Response(
@@ -433,8 +441,7 @@ class OrderViewSet(ModelViewSet):
 
         if order.status != ORDER_STATUS_PROCESSING:
             return Response(
-                {'detail': f"Order status must be processing; \
-                    but it's {order.status}"},
+                {'detail': f"Order status must be processing; but it's {order.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -442,83 +449,64 @@ class OrderViewSet(ModelViewSet):
         if payment and payment.status == PAYMENT_STATUS_SUCCESS:
             return Response(
                 # either sucess or failed
-                {'detail': f"It can not paid. \
-                    it is already been {payment.status}"},
+                {'detail': f"It can not paid. it is already been {payment.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if payment and payment.status == PAYMENT_STATUS_PENDING:
             payment.delete()
 
-        # NOTE: for test
-        reference_id = settings.MERCHANT_ID
+        # sending data to payment gateway
+        payload = {
+            'merchant_id': settings.MERCHANT_ID,
+            'amount': int(order.total_price),
+            'currency': settings.CURRENCY,
+            'callback_url': settings.CALLBACK_URL,
+            'description': settings.DESCRIPTION,
+            'mobile': request.user.phone,
+            'email': request.user.email or None,
+            'order_id': str(order.id)
+        }
+        try:
+            r = requests.post(
+                settings.PAYMENT_REQUEST_GATEWAY,
+                json=payload,
+                headers={
+                    "Accept": "application/json",
+                    "Content-type": "application/json"},
+                timeout=10
+            )
+        except Exception as e:
+            return Response(
+                {'detail': f'connection error: {e}'},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        # check the connection response
+        result = r.json()
+        if result.get('data', {}).get('code') != 100:
+            return Response(
+                {
+                    'detail': 'payment request failed',
+                    'errors': f'{result.get('errors')}'
+                },
+                status=status.HTTP_417_EXPECTATION_FAILED
+            )
+
+        # creating Payment object
+        authority = result.get('data', {}).get('authority')
         Payment.objects.create(
             order=order,
             status=PAYMENT_STATUS_PENDING,
-            reference_id=reference_id,
+            reference_id=authority,
             amount=order.total_price
         )
 
+        # redirecting customer to paying url
+        pay_url = f'{settings.PAYMENT_GATEWAY}{authority}'
         return Response(
-            {
-                'redirect_url': settings.PAYMENT_GATEWAY,
-                'reference_id': reference_id},
+            {'redirect_url': pay_url},
             status=status.HTTP_201_CREATED
         )
-
-        # NOTE: for production send your merchant_id and get the redirect_url
-
-        # # sending data to payment gateway
-        # payload = {
-        #     'merchant_id': settings.MERCHANT_ID,
-        #     'amount': order.total_price,
-        #     'currency': settings.CURRENCY,
-        #     'callback_url': settings.CALLBACK_URL,
-        #     'description': settings.DESCRIPTION,
-        #     'mobile': request.user.phone,
-        #     'email': request.user.email or None,
-        #     'order_id': str(order.id)
-        # }
-        # try:
-        #     r = requests.post(
-        #         settings.PAYMENT_REQUEST_GATEWAY,
-        #         json=payload,
-        #         headers={
-        #             "Accept": "application/json",
-        #             "Content-type": "application/json"},
-        #         timeout=10
-        #     )
-        # except Exception as e:
-        #     return Response(
-        #         {'detail': f'connection error: {e}'},
-        #         status=status.HTTP_502_BAD_GATEWAY
-        #     )
-
-        # # check the connection response
-        # result = r.json()
-        # if result.get('data', {}).get('code') != 100:
-        #     return Response(
-        #         {
-        #             'detail': 'payment request failed',
-        #             'errors': f'{result.get('errors')}'
-        #         },
-        #         status=status.HTTP_417_EXPECTATION_FAILED
-        #     )
-
-        # # creating Payment object
-        # authority = result.data['authority']
-        # Payment.objects.create(
-        #     order=order,
-        #     status=PAYMENT_STATUS_PENDING,
-        #     reference_id=authority,
-        #     amount=order.total_price
-        # )
-
-        # # redirecting customer to paying url
-        # pay_url = f'{settings.PAYMENT_GATEWAY}{authority}'
-        # return Response(
-        #     {'redirect_url': pay_url},
-        #     status=status.HTTP_201_CREATED
-        # )
 
 
 class PaymentCallbackAPIView(APIView):
@@ -528,6 +516,8 @@ class PaymentCallbackAPIView(APIView):
     calls methods that verify the payment and update the payment in db,
     returns the appropriate response to the user.
     """
+    permission_classes = [AllowAny]
+
     def get(self, request):
 
         # check query params
@@ -608,7 +598,7 @@ class DashboardViewSet(ViewSet):
 
         # check request's data
         ids = request.data.get('ids', [])
-        if not ids:
+        if not ids or not isinstance(ids, list):
             raise ValidationError("You need to pass a list of ids")
 
         # find items

@@ -1,7 +1,12 @@
 import requests
 from django.conf import settings
 from django.db import transaction
-from market.models import Payment, PAYMENT_STATUS_SUCCESS
+from market.models import (
+    Payment,
+    Order,
+    PAYMENT_STATUS_SUCCESS,
+    ORDER_STATUS_DELIVERED
+)
 from market.custom_exceptions import (
     PaymentNotFoundError,
     PaymentVerificationError
@@ -21,10 +26,12 @@ class PaymentGatewayService:
             'amount': amount,
             'authority': authority
         }
+        print(f'*******verify endpoint data: {payload_data}*******')
 
         serializer = PaymentVerifySerializer(data=payload_data)
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
+        print(f'*******validated_data: {serializer.validated_data}*******')
 
         result = requests.post(
             url=cls.VERIFY_URL,
@@ -34,6 +41,7 @@ class PaymentGatewayService:
                 'Content-type': 'application/json'},
             timeout=10
         )
+        print(f'*******verify endpoint res: {result.json()}*******')
 
         return result.json()
 
@@ -49,6 +57,7 @@ class PaymentService:
         payment = Payment.objects.filter(reference_id=authority).first()
         if not payment:
             raise PaymentNotFoundError
+        print(f'*******payment: {payment.reference_id}*******')
 
         # call payment gateway's verify endpoint
         amount = int(payment.order.total_price)
@@ -56,7 +65,9 @@ class PaymentService:
             amount=amount, authority=authority)
 
         # check the response
-        if result.get('data', {}).get('message') != 'Verified':
+        message = result.get('data', {}).get('message')
+        code = result.get('data', {}).get('code')
+        if (message != 'Paid') and (code not in [100, 101]):
             raise PaymentVerificationError(
                 result.get('errors', 'Unknown error from gateway')
             )
@@ -68,3 +79,6 @@ class PaymentService:
         payment.transaction_id = data.get('ref_id')
         payment.fee = data.get('fee')
         payment.save()
+        order = Order.objects.filter(id=payment.order_id).first()
+        order.status = ORDER_STATUS_DELIVERED
+        order.save()
