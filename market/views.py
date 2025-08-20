@@ -7,7 +7,10 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    ListAPIView,
+    RetrieveUpdateDestroyAPIView
+)
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from market.models import (
@@ -101,12 +104,13 @@ class StoreViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
 
+    # OPTIMIZE: make dashboard/stores/ to show stores to sellers;
 
-class StoreAddressViewSet(ModelViewSet):
-    # FIXME: no need to a viewset for storeaddress
+
+class StoreAddressListAPI(ListAPIView):
     queryset = StoreAddress.objects.all()
     serializer_class = StoreAddressSerializer
-    permission_classes = [IsSellerOfAddress]
+    permission_classes = [IsSeller]
     pagination_class = SmallPaginatioinSettings
     filter_backends = [SearchFilter]
     search_fields = ['label', 'city', 'state', 'country']
