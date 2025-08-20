@@ -70,5 +70,5 @@ def seller_rates_data(user: User, stores: list) -> dict:
 
     return {
         'stores': seller_stores,
-        'order_items_counts': stores_rates
+        'stores_rates': stores_rates
     }

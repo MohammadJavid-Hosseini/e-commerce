@@ -570,7 +570,7 @@ class DashboardViewSet(ViewSet):
 
         # fetch seller and their stores
         user = request.user
-        store_qs = Store.objects.filter(seller=user)
+        store_qs = Store.objects.select_related('seller', 'address').filter(seller=user)
         stores = [store for store in store_qs.all()]
 
         # fetch statistics for seller and their stores
@@ -580,6 +580,18 @@ class DashboardViewSet(ViewSet):
             {'Seller': user.username, 'Stores Review': seller_rates},
             status=status.HTTP_200_OK
             )
+
+    @action(detail=False, methods=['get'])
+    def stores(self, request):
+        """show all seller's stores"""
+        user = request.user
+        store_qs = Store.objects.select_related('seller', 'address').filter(seller=user)
+        stores = []
+        for store in store_qs:
+            serializer = StoreSerializer(store)
+            stores.append(serializer.data)
+        
+        return Response({'Stores': stores}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
     def order_items(self, request):
