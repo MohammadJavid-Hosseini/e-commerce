@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 from market.views import (
     StoreViewSet,
-    StoreAddressViewSet,
+    StoreAddressListAPI,
     CategoryViewSet,
     ProductViewSet,
     StoreItemViewSet,
@@ -16,7 +16,6 @@ from market.views import (
 
 router = DefaultRouter()
 router.register('store', StoreViewSet, 'store')
-router.register('store_address', StoreAddressViewSet, 'store_address')
 router.register('category', CategoryViewSet, 'category')
 router.register('product', ProductViewSet, 'product')
 router.register('store_item', StoreItemViewSet, 'store_item')
@@ -26,6 +25,7 @@ router.register('order', OrderViewSet, 'order')
 router.register('dashboard', DashboardViewSet, 'dashboard')
 
 urlpatterns = [
+    path('store_address/', StoreAddressListAPI.as_view(), name='store_addresses'),
     path('reviews/<int:pk>/', ReviewDetailAPIView.as_view(), name='reviews'),
     path('payment/verify/', PaymentCallbackAPIView.as_view(),
          name='payment-verify')

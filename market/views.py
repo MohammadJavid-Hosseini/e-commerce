@@ -7,7 +7,10 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
-from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    ListAPIView,
+    RetrieveUpdateDestroyAPIView
+)
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from market.models import (
@@ -88,10 +91,7 @@ class StoreViewSet(ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
-        elif self.action == 'create':
-            return [IsAuthenticated(), IsSeller()]
-        else:
-            return [IsAuthenticated(), IsSeller(), IsStoreOwner()]
+        return [IsSeller()] if self.action == 'create' else [IsStoreOwner()]
 
     def get_queryset(self):
         # let everyone see the list of stores and details
@@ -104,17 +104,20 @@ class StoreViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
 
+    # OPTIMIZE: make dashboard/stores/ to show stores to sellers;
 
-class StoreAddressViewSet(ModelViewSet):
+
+class StoreAddressListAPI(ListAPIView):
     queryset = StoreAddress.objects.all()
     serializer_class = StoreAddressSerializer
-    permission_classes = [IsAuthenticated, IsSellerOfAddress]
+    permission_classes = [IsSeller]
     pagination_class = SmallPaginatioinSettings
     filter_backends = [SearchFilter]
     search_fields = ['label', 'city', 'state', 'country']
 
     def get_queryset(self):
-        return StoreAddress.objects.filter(store__seller=self.request.user)
+        base_qs = StoreAddress.objects.all()
+        return base_qs if self.request.user.is_staff else base_qs.filter(store__seller=self.request.user)
 
 
 class CategoryViewSet (ModelViewSet,
@@ -236,7 +239,7 @@ class StoreItemViewSet(ModelViewSet,
                        CachableQuerySetMixin):
 
     serializer_class = StoreItemSerializer
-    permission_classes = [IsAuthenticated, IsSeller]
+    permission_classes = [IsSeller]
     filter_backends = [OrderingFilter, SearchFilter, DjangoFilterBackend]
     ordering_fields = ['product', 'price', 'discount_price', 'stock']
     ordering = ['-price']
@@ -266,7 +269,6 @@ class StoreItemViewSet(ModelViewSet,
 
 class CartViewSet(ModelViewSet):
     serializer_class = CartSerializer
-    permission_classes = [IsAuthenticated]
     queryset = Cart.objects.all()
 
     def get_queryset(self):
@@ -278,8 +280,7 @@ class CartViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         if not request.user.is_staff:
             return Response({
-                'detail': 'Cart deletion is desabled. \
-                    Use /cart/<id>/empty instead'
+                'detail': 'Cart deletion is desabled. Use /cart/<id>/empty instead'
                 },
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
@@ -304,7 +305,7 @@ class CartViewSet(ModelViewSet):
 
 class CartItemViewSet(ModelViewSet):
     serializer_class = CartItemSerializer
-    permission_classes = [IsAuthenticated, IsCartOwner]
+    permission_classes = [IsCartOwner]
 
     def get_queryset(self):
         base_qs = CartItem.objects.select_related('cart', 'store_item')
@@ -342,7 +343,7 @@ class CartItemViewSet(ModelViewSet):
 
 class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated, IsOrderOwner]
+    permission_classes = [IsOrderOwner]
     # TODO: set the ordering. for list, updated_at is the key
 
     def get_queryset(self):
@@ -569,7 +570,7 @@ class DashboardViewSet(ViewSet):
 
         # fetch seller and their stores
         user = request.user
-        store_qs = Store.objects.filter(seller=user)
+        store_qs = Store.objects.select_related('seller', 'address').filter(seller=user)
         stores = [store for store in store_qs.all()]
 
         # fetch statistics for seller and their stores
@@ -579,6 +580,18 @@ class DashboardViewSet(ViewSet):
             {'Seller': user.username, 'Stores Review': seller_rates},
             status=status.HTTP_200_OK
             )
+
+    @action(detail=False, methods=['get'])
+    def stores(self, request):
+        """show all seller's stores"""
+        user = request.user
+        store_qs = Store.objects.select_related('seller', 'address').filter(seller=user)
+        stores = []
+        for store in store_qs:
+            serializer = StoreSerializer(store)
+            stores.append(serializer.data)
+        
+        return Response({'Stores': stores}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
     def order_items(self, request):
@@ -635,7 +648,7 @@ class DashboardViewSet(ViewSet):
             )
 
     @action(detail=False, methods=['post'])
-    def reject_item(self, request):
+    def reject_items(self, request):
         """reject multiple order items in one request"""
 
         try:
