@@ -88,10 +88,7 @@ class StoreViewSet(ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
-        elif self.action == 'create':
-            return [IsAuthenticated(), IsSeller()]
-        else:
-            return [IsAuthenticated(), IsSeller(), IsStoreOwner()]
+        return [IsSeller()] if self.action == 'create' else [IsStoreOwner()]
 
     def get_queryset(self):
         # let everyone see the list of stores and details
@@ -106,15 +103,17 @@ class StoreViewSet(ModelViewSet):
 
 
 class StoreAddressViewSet(ModelViewSet):
+    # FIXME: no need to a viewset for storeaddress
     queryset = StoreAddress.objects.all()
     serializer_class = StoreAddressSerializer
-    permission_classes = [IsAuthenticated, IsSellerOfAddress]
+    permission_classes = [IsSellerOfAddress]
     pagination_class = SmallPaginatioinSettings
     filter_backends = [SearchFilter]
     search_fields = ['label', 'city', 'state', 'country']
 
     def get_queryset(self):
-        return StoreAddress.objects.filter(store__seller=self.request.user)
+        base_qs = StoreAddress.objects.all()
+        return base_qs if self.request.user.is_staff else base_qs.filter(store__seller=self.request.user)
 
 
 class CategoryViewSet (ModelViewSet,
@@ -236,7 +235,7 @@ class StoreItemViewSet(ModelViewSet,
                        CachableQuerySetMixin):
 
     serializer_class = StoreItemSerializer
-    permission_classes = [IsAuthenticated, IsSeller]
+    permission_classes = [IsSeller]
     filter_backends = [OrderingFilter, SearchFilter, DjangoFilterBackend]
     ordering_fields = ['product', 'price', 'discount_price', 'stock']
     ordering = ['-price']
@@ -266,7 +265,6 @@ class StoreItemViewSet(ModelViewSet,
 
 class CartViewSet(ModelViewSet):
     serializer_class = CartSerializer
-    permission_classes = [IsAuthenticated]
     queryset = Cart.objects.all()
 
     def get_queryset(self):
@@ -278,8 +276,7 @@ class CartViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         if not request.user.is_staff:
             return Response({
-                'detail': 'Cart deletion is desabled. \
-                    Use /cart/<id>/empty instead'
+                'detail': 'Cart deletion is desabled. Use /cart/<id>/empty instead'
                 },
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
@@ -304,7 +301,7 @@ class CartViewSet(ModelViewSet):
 
 class CartItemViewSet(ModelViewSet):
     serializer_class = CartItemSerializer
-    permission_classes = [IsAuthenticated, IsCartOwner]
+    permission_classes = [IsCartOwner]
 
     def get_queryset(self):
         base_qs = CartItem.objects.select_related('cart', 'store_item')
@@ -342,7 +339,7 @@ class CartItemViewSet(ModelViewSet):
 
 class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated, IsOrderOwner]
+    permission_classes = [IsOrderOwner]
     # TODO: set the ordering. for list, updated_at is the key
 
     def get_queryset(self):
@@ -635,7 +632,7 @@ class DashboardViewSet(ViewSet):
             )
 
     @action(detail=False, methods=['post'])
-    def reject_item(self, request):
+    def reject_items(self, request):
         """reject multiple order items in one request"""
 
         try:

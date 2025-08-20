@@ -17,7 +17,7 @@ class StoreAddressSerializer(serializers.ModelSerializer):
 class StoreSerializer(serializers.ModelSerializer):
     address = StoreAddressSerializer(read_only=True)
     # an alternative to overriding get_fields
-    # delete the comment later
+    # NOTE: delete the comment later
     address_id = serializers.PrimaryKeyRelatedField(
         queryset=StoreAddress.objects.all(),
         source='address',
@@ -198,8 +198,8 @@ class MiniCartItemSerializer (serializers.ModelSerializer,
 
     class Meta:
         model = CartItem
-        fields = ['id', 'store_item', 'quantity', 'final_price']
-        read_only_fields = ['id', 'final_price']
+        fields = ['id', 'cart', 'store_item', 'quantity', 'final_price']
+        read_only_fields = ['id', 'cart', 'final_price']
 
     def get_final_price(self, obj):
         return obj.final_price
