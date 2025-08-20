@@ -20,7 +20,7 @@ from account.utils import (
 
 from account.models import UserAddress
 from account.permissions import IsAddressOwner
-
+from market.utlis import SmallPaginatioinSettings
 User = get_user_model()
 
 
@@ -125,7 +125,6 @@ class LogoutAPIView(APIView):
 class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.prefetch_related('addresses')
     serializer_class = UserSerializer
-    # permission_classes = [IsAuthenticated]   # it had already set globally
 
     @property
     def cache_key(self):
@@ -158,6 +157,7 @@ class CustomerProfileDetailAPIView(RetrieveUpdateDestroyAPIView):
 
 class UserAddressViewSet(ModelViewSet):
     queryset = UserAddress.objects.select_related('owner').all()
+    pagination_class = SmallPaginatioinSettings
 
     def get_queryset(self):
         return UserAddress.objects.filter(owner=self.request.user)

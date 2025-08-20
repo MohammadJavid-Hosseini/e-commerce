@@ -270,6 +270,7 @@ class StoreItemViewSet(ModelViewSet,
 class CartViewSet(ModelViewSet):
     serializer_class = CartSerializer
     queryset = Cart.objects.all()
+    pagination_class = LargePaginatioinSettings
 
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -306,6 +307,7 @@ class CartViewSet(ModelViewSet):
 class CartItemViewSet(ModelViewSet):
     serializer_class = CartItemSerializer
     permission_classes = [IsCartOwner]
+    pagination_class = SmallPaginatioinSettings
 
     def get_queryset(self):
         base_qs = CartItem.objects.select_related('cart', 'store_item')
@@ -344,6 +346,7 @@ class CartItemViewSet(ModelViewSet):
 class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsOrderOwner]
+    pagination_class = SmallPaginatioinSettings
     # TODO: set the ordering. for list, updated_at is the key
 
     def get_queryset(self):
@@ -555,6 +558,7 @@ class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = ReviewSerializer
     queryset = Review.objects.select_related('user', 'product').all()
     permission_classes = [IsReviewOwner]
+    pagination_class = LargePaginatioinSettings
 
     def perform_update(self, serializer):
         serializer.save(user=self.request.user)

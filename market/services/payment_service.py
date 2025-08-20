@@ -26,12 +26,10 @@ class PaymentGatewayService:
             'amount': amount,
             'authority': authority
         }
-        print(f'*******verify endpoint data: {payload_data}*******')
 
         serializer = PaymentVerifySerializer(data=payload_data)
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
-        print(f'*******validated_data: {serializer.validated_data}*******')
 
         result = requests.post(
             url=cls.VERIFY_URL,
@@ -41,7 +39,6 @@ class PaymentGatewayService:
                 'Content-type': 'application/json'},
             timeout=10
         )
-        print(f'*******verify endpoint res: {result.json()}*******')
 
         return result.json()
 
