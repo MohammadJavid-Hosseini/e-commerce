@@ -119,6 +119,24 @@ Start Celery worker:
 celery -A ecommerce worker --loglevel=info
 ```
 
+## Or Use Docker Compose Instead
+once you cloned, run:
+
+### Run Docker Compose
+```bash
+docker compose up -d
+```
+
+### Apply Migrations
+```bash
+docker compose exec web python manage.py migrate
+```
+
+### Collect Statics
+```bash
+docker compose exec web python collectstatic
+```
+
 ### 📚 API Usage
 Backend API: http://localhost:8000/api/
 
