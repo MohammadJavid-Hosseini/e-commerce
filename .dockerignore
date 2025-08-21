@@ -15,3 +15,8 @@ docker-compose.yml
 */migrations/
 
 *.log
+
+# Celery Beat files
+celerybeat-schedule
+celerybeat-schedule.*
+*.celerybeat-schedule
