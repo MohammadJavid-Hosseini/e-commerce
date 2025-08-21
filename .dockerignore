@@ -17,6 +17,8 @@ docker-compose.yml
 *.log
 
 # Celery Beat files
+celerybeat-schedule-shm
+celerybeat-schedule-wal
 celerybeat-schedule
 celerybeat-schedule.*
 *.celerybeat-schedule
