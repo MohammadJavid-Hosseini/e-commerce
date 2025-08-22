@@ -4,6 +4,7 @@ from market.views import (
     StoreViewSet,
     StoreAddressListAPI,
     CategoryViewSet,
+    ImageViewSet,
     ProductViewSet,
     StoreItemViewSet,
     DashboardViewSet,
@@ -23,6 +24,7 @@ router.register('cart', CartViewSet, 'cart')
 router.register('cart_item', CartItemViewSet, 'cart_item')
 router.register('order', OrderViewSet, 'order')
 router.register('dashboard', DashboardViewSet, 'dashboard')
+router.register('image', ImageViewSet, 'image')
 
 urlpatterns = [
     path('store_address/', StoreAddressListAPI.as_view(), name='store_addresses'),
