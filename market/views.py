@@ -178,8 +178,10 @@ class ProductViewSet(ModelViewSet,
     def get_queryset(self):
         qs = Product.objects.select_related('category') \
             .prefetch_related('reviews')
-        if self.request.user.is_staff:
-            return self.get_cached_queryset('products', qs.all())
+        user = self.request.user
+        if user:
+            if user.is_staff:
+                return self.get_cached_queryset('products', qs.all())
         return self.get_cached_queryset(
             'active_products',
             qs.filter(is_active=True)

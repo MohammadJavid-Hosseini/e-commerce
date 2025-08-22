@@ -91,6 +91,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description',
             'image', 'is_active', 'parent', 'parent_id']
+        read_only_fields = ['id', 'is_active', 'parent']
 
 
 class ReviewSerializer(serializers.ModelSerializer,
