@@ -51,7 +51,7 @@ class RequestOTPAPIView(APIView):
         print(f"OTP {otp} sent to phone {phone}")
 
         # For production
-        # send_sms_verification_code(code=otp, phone_number=phone)
+        send_sms_verification_code(code=otp, phone_number=phone)
 
         return Response(
             {"message": "The code sent to your phone."},

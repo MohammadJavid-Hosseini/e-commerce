@@ -113,6 +113,7 @@ class CartTests(APITestCase):
                 "items": [
                     {
                         "id": item_id,
+                        "cart": cart_id,
                         "store_item": self.store_item_1.id,
                         "quantity": 2,
                         "final_price": final_price
@@ -152,6 +153,7 @@ class CartTests(APITestCase):
                 "items": [
                     {
                         "id": item_id,
+                        "cart": cart_id,
                         "store_item": self.store_item_1.id,
                         "quantity": 1,
                         "final_price": final_price

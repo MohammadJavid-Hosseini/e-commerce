@@ -1,62 +1,113 @@
+networks:
+  ecommerce-network:
+    name: ecommerce-network
+    driver: bridge
+
 services:
   db:
     image: postgres:17.5-alpine
     ports:
-      - "5433:5433"
+      - "5433:5432"
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    env_file:
+      - .env
     volumes:
-      - postgresdata:/var/lib/postgresql/data
+      - ecommerce_db:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-db
     
   redis:
     image: redis:7.4.0-alpine
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-redis
   
   web:
-    build: .
-    # command: gunicorn --bind 0.0.0.0:8000 --workers 3 maktab_django_126.wsgi:application
+    image: ecommerce-app:latest
+    command: gunicorn --bind 0.0.0.0:8000 --workers 2 --threads 5 --reload config.wsgi:application
     volumes:
       - shared:/shared
+      - .:/e-commerce
     ports:
       - "8000:8000"
     depends_on:
       - db
       - redis
     env_file:
-      - .env.docker
+      - .env
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-web   
   
-  worker-1:
-    build: .
-    command: celery -A maktab_django_126 worker --loglevel=info
+  worker:
+    image: ecommerce-app:latest
+    command: celery -A config worker --loglevel=info
     volumes:
       - shared:/shared
-    ports:
-      - "8001:8001"
+      - .:/e-commerce
     depends_on:
       - db
       - redis
     env_file:
-      - .env.docker
+      - .env
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-worker
 
   beat:
-    build: .
-    command: celery -A maktab_django_126 beat --loglevel=info
+    image: ecommerce-app:latest
+    command: celery -A config beat --loglevel=info
     volumes:
       - shared:/shared
-    ports:
-      - "8002:8002"
+      - .:/e-commerce
     depends_on:
       - db
       - redis
     env_file:
-      - .env.docker
+      - .env
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-beat
 
-  # nginx:
-  #   image: nginx:latest
-  #   volumes:
-  #     - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-  #     - shared:/shared
+  nginx:
+    image: nginx:latest
+    ports:
+      - 80:80
+    depends_on:
+      - web
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - shared:/shared
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-nginx
+  
+  frontend:
+    build:
+      context: ../e-commerce_front
+      # HACK: for production: dockerfile -> Dockerfile
+      dockerfile: Dockerfile.dev
+
+    # For dev: mount your code
+    volumes:
+      - ../e-commerce_front:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - 5173:5173
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=/api
+    depends_on:
+      - web
+    networks:
+      - ecommerce-network
+    container_name: ecommerce-front
+
 volumes:
-  postgresdata:
+  ecommerce_db:
   shared:
+

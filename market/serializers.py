@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from market.models import (
-    Store, StoreAddress, Category, Product, StoreItem, Cart,
+    Store, StoreAddress, Category, Image, Product, StoreItem, Cart,
     CartItem, Order, OrderItem, UserAddress, Review, Payment)
 from market.services.mixins import RepresentAsStringMixin
 from market.tasks import send_order_creation_email
@@ -8,6 +8,7 @@ from market.tasks import send_order_creation_email
 
 class StoreAddressSerializer(serializers.ModelSerializer):
     store = serializers.SerializerMethodField()
+
     class Meta:
         model = StoreAddress
         fields = [
@@ -17,6 +18,7 @@ class StoreAddressSerializer(serializers.ModelSerializer):
 
     def get_store(self, obj):
         return f'id: {obj.store.id}, name: {obj.store.name}'
+
 
 class StoreSerializer(serializers.ModelSerializer):
     address = StoreAddressSerializer()
@@ -91,6 +93,8 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description',
             'image', 'is_active', 'parent', 'parent_id']
+        # HACK: later, make is_active read_only as well
+        read_only_fields = ['id', 'parent']
 
 
 class ReviewSerializer(serializers.ModelSerializer,
@@ -136,18 +140,44 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         ]
 
 
-class ProductListSerializer(serializers.ModelSerializer):
-    category = serializers.StringRelatedField(read_only=True)
+class ImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = ['id', 'product', 'image']
+
+
+class ProductListSerializer(serializers.ModelSerializer,
+                            RepresentAsStringMixin):
     reviews = serializers.SerializerMethodField()
+    images = ImageSerializer(many=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category', 'reviews']
+        fields = ['id', 'name', 'category', 'reviews', 'images', 'is_active']
+        # HACK: is_active -> read_only
+        read_only_fields = ['id', 'reviews']
 
         ordering = ['name']
 
     def get_reviews(self, obj):
         return [str(review) for review in obj.reviews.all()][:4]
+
+    def get_fields(self):
+        fields = super().get_fields()
+        self.to_string(fields, 'category')
+        return fields
+
+    def create(self, validated_data):
+        images = validated_data.pop('images')
+        product = Product.objects.create(**validated_data)
+
+        for image in images:
+            serializer = ImageSerializer(image)
+            serializer.is_valid(raise_exception=True)
+            Image.objects.create(product=product, **serializer.validated_data)
+
+        product.save()
+        return product
 
 
 class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
@@ -163,8 +193,8 @@ class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
         fields = [
             'id', 'store', 'product', 'price',
             'discount_price', 'stock', 'is_active']
-
-    read_only_fields = ['is_active']
+    # HACK:
+    # read_only_fields = ['is_active']
 
 
 class CartItemSerializer(serializers.ModelSerializer,

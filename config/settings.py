@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 import uuid
 from pathlib import Path
-from decouple import config
+from decouple import config, Csv
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -29,7 +29,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG")
 
-ALLOWED_HOSTS = ['testserver', '127.0.0.1', 'localhost', 'e-commerce.test']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
 
 
 # Application definition
@@ -96,7 +96,7 @@ DATABASES = {
         "NAME": config("DB_NAME"),
         "USER": config("DB_USER"),
         "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
+        "HOST": config("DB_HOST", default="db"),
         "PORT": config("DB_PORT", default="5432"),
     }
 }
@@ -136,8 +136,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+# Set the media and static urls
+STATIC_URL = '/static/'
+STATIC_ROOT = '/shared/static/'
+MEDIA_URL = "/media/"
+MEDIA_ROOT = '/shared/media/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -146,10 +150,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Set the costumized user as user auth model
 AUTH_USER_MODEL = 'account.User'
-
-# Set the media routes
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
 
 # Set the backends for authentication
 AUTHENTICATION_BACKENDS = [
@@ -183,19 +183,19 @@ SIMPLE_JWT = {
 }
 
 # Redis settings
-REDIS_HOST = config('REDIS_HOST')
-REDIS_PORT = config('REDIS_PORT')
+REDIS_HOST = config('REDIS_HOST', 'redis')
+REDIS_PORT = config('REDIS_PORT', 6379)
 
 # Setup redis for caching
 CACHES = {
     'default': {
         'BACKEND': "django_redis.cache.RedisCache",
-        'LOCATION': "redis://127.0.0.1:6379/1",
+        'LOCATION': f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
         }
     }
 
 # celery settings
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/2'
+CELERY_BROKER_URL = F'redis://{REDIS_HOST}:{REDIS_PORT}/2'
 
 # email setting
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

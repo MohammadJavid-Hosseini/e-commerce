@@ -208,3 +208,10 @@ __marimo__/
 
 # media
 media/
+
+# Celery Beat files
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+celerybeat-schedule.*
+*.celerybeat-schedule

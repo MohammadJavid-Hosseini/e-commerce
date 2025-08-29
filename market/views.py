@@ -17,6 +17,7 @@ from market.models import (
     Store,
     StoreAddress,
     Category,
+    Image,
     Product,
     StoreItem,
     Cart,
@@ -38,6 +39,7 @@ from market.serializers import (
     StoreSerializer,
     StoreAddressSerializer,
     CategorySerializer,
+    ImageSerializer,
     ProductListSerializer,
     ProductDetailSerializer,
     StoreItemSerializer,
@@ -49,7 +51,6 @@ from market.serializers import (
     )
 from market.permissions import (
     IsStoreOwner,
-    IsSellerOfAddress,
     IsSeller,
     IsSellerOrReadOnly,
     IsCartOwner,
@@ -178,8 +179,10 @@ class ProductViewSet(ModelViewSet,
     def get_queryset(self):
         qs = Product.objects.select_related('category') \
             .prefetch_related('reviews')
-        if self.request.user.is_staff:
-            return self.get_cached_queryset('products', qs.all())
+        user = self.request.user
+        if user:
+            if user.is_staff:
+                return self.get_cached_queryset('products', qs.all())
         return self.get_cached_queryset(
             'active_products',
             qs.filter(is_active=True)
@@ -232,6 +235,13 @@ class ProductViewSet(ModelViewSet,
             )
             return Response(
                 {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
+
+
+class ImageViewSet(ModelViewSet):
+    permission_classes = [IsSellerOrReadOnly]
+    pagination_class = SmallPaginatioinSettings
+    queryset = Image.objects.select_related('product').all()
+    serializer_class = ImageSerializer
 
 
 class StoreItemViewSet(ModelViewSet,
@@ -594,7 +604,7 @@ class DashboardViewSet(ViewSet):
         for store in store_qs:
             serializer = StoreSerializer(store)
             stores.append(serializer.data)
-        
+
         return Response({'Stores': stores}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
@@ -645,8 +655,7 @@ class DashboardViewSet(ViewSet):
         return Response(
             {
                 'confirmed': f'{len(order_items)} order items confirmed',
-                'missed': f'{len(set(ids)) - len(order_items)} \
-                    ids do not exist'
+                'missed': f'{len(set(ids)) - len(order_items)} ids do not exist'
                 },
             status=status.HTTP_200_OK
             )
