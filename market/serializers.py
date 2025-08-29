@@ -8,6 +8,7 @@ from market.tasks import send_order_creation_email
 
 class StoreAddressSerializer(serializers.ModelSerializer):
     store = serializers.SerializerMethodField()
+
     class Meta:
         model = StoreAddress
         fields = [
@@ -17,6 +18,7 @@ class StoreAddressSerializer(serializers.ModelSerializer):
 
     def get_store(self, obj):
         return f'id: {obj.store.id}, name: {obj.store.name}'
+
 
 class StoreSerializer(serializers.ModelSerializer):
     address = StoreAddressSerializer()
@@ -144,15 +146,16 @@ class ImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'product', 'image']
 
 
-class ProductListSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
+class ProductListSerializer(serializers.ModelSerializer,
+                            RepresentAsStringMixin):
     reviews = serializers.SerializerMethodField()
-    images = ImageSerializer(many=True, source='images.all')
+    images = ImageSerializer(many=True)
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'category', 'reviews', 'images', 'is_active']
         # HACK: is_active -> read_only
-        read_only_fields = ['id', 'reviews', 'images']
+        read_only_fields = ['id', 'reviews']
 
         ordering = ['name']
 
