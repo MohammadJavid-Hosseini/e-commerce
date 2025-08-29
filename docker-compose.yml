@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:17.5-alpine
     ports:
-      - "5433:5433"
+      - "5433:5432"
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -65,7 +65,7 @@ services:
   
   frontend:
     build: ./e-commerce_front
-    container_name: node_frontend
+    container_name: frontend
     # For dev: mount your code
     volumes:
       - ./e-commerce_front:/usr/src/app
@@ -74,7 +74,7 @@ services:
       - 5173:5173
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=/api
     depends_on:
       - web
     command: sh -c "pnpm dev --host 0.0.0.0 --port 5173"
