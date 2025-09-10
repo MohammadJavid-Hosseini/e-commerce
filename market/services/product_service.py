@@ -35,7 +35,8 @@ def get_best_seller(product):
         'discounted_price').select_related('store').first()
 
     return cheapest_item.store.name if cheapest_item else None
-
+    # FIXME: you need to return a Seller object
+    # return cheapest_item if cheapest_item else None
 
 def get_best_seller_user(product):
     """find the owner of the best store."""

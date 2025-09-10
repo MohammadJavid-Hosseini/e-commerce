@@ -16,15 +16,15 @@ from market.views import (
 )
 
 router = DefaultRouter()
-router.register('store', StoreViewSet, 'store')
-router.register('category', CategoryViewSet, 'category')
-router.register('product', ProductViewSet, 'product')
-router.register('store_item', StoreItemViewSet, 'store_item')
-router.register('cart', CartViewSet, 'cart')
-router.register('cart_item', CartItemViewSet, 'cart_item')
-router.register('order', OrderViewSet, 'order')
-router.register('dashboard', DashboardViewSet, 'dashboard')
-router.register('image', ImageViewSet, 'image')
+# router.register('mystore', StoreViewSet, 'store')
+router.register('categories', CategoryViewSet, 'category')
+router.register('products', ProductViewSet, 'product')
+router.register('store_items', StoreItemViewSet, 'store_item')
+router.register('carts', CartViewSet, 'cart')
+router.register('cart_items', CartItemViewSet, 'cart_item')
+router.register('orders', OrderViewSet, 'order')
+# router.register('mystore', DashboardViewSet, 'dashboard')
+router.register('images', ImageViewSet, 'image')
 
 urlpatterns = [
     path('store_address/', StoreAddressListAPI.as_view(), name='store_addresses'),

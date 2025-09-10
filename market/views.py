@@ -95,17 +95,12 @@ class StoreViewSet(ModelViewSet):
         return [IsSeller()] if self.action == 'create' else [IsStoreOwner()]
 
     def get_queryset(self):
-        # let everyone see the list of stores and details
-        if self.action in ['list', 'retrieve']:
-            return Store.objects.select_related('seller', 'address').all()
-        # only store-owners can modify the store data
-        else:
-            return Store.objects.filter(seller=self.request.user)
+        user = self.request.user
+        qs = Store.objects.select_related('seller', 'address')
+        return qs.all() if user.is_staff else qs.filter(seller=user)
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
-
-    # OPTIMIZE: make dashboard/stores/ to show stores to sellers;
 
 
 class StoreAddressListAPI(ListAPIView):
@@ -577,6 +572,7 @@ class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
 class DashboardViewSet(ViewSet):
     """A controlling manager for all seller stuff"""
     permission_classes = [IsSeller]
+    pagination_class = SmallPaginatioinSettings
 
     @action(detail=False, methods=['get'])
     def review(self, request):
@@ -608,7 +604,7 @@ class DashboardViewSet(ViewSet):
         return Response({'Stores': stores}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
-    def order_items(self, request):
+    def orderitems(self, request):
         """show status-based categories of order items per store"""
 
         # fetch stores

@@ -5,17 +5,17 @@ from account import views
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register('address', views.UserAddressViewSet, 'address')
+router.register('myuser/address', views.UserAddressViewSet, 'address')
 
 urlpatterns = [
-    path('get_otp/', views.RequestOTPAPIView.as_view(), name='get_otp'),
+    path('request-otp/', views.RequestOTPAPIView.as_view(), name='request-otp'),
+    path('verify-otp/', views.OTPLoginAPIView.as_view(), name='verify-otp'),
     path('register/', views.RegistrationAPIView.as_view(), name='register'),
     path('refresh/', TokenRefreshView.as_view(), name='refresh'),
-    path('login/', views.OTPLoginAPIView.as_view(), name='login'),
     path('logout/', views.LogoutAPIView.as_view(), name='logout'),
     path('_jwt_login/', TokenObtainPairView.as_view(), name='jwtlogin'),
     path(
-        'profile/', views.CustomerProfileDetailAPIView.as_view(),
+        'myuser/', views.CustomerProfileDetailAPIView.as_view(),
         name='customer-profile')
 ]
 
