@@ -40,8 +40,13 @@ urlpatterns = [
     path('api/accounts/', include('account.urls')),
     path('api/', include('account.urls')),
     path('api/', include('market.urls')),
-    path('swagger/', schema_view.with_ui(), name='schema-swagger-ui')
 ]
+
+# Serve swagger UI only in debug
+if settings.DEBUG:
+    urlpatterns += [
+        path('swagger/', schema_view.with_ui(), name='schema-swagger-ui')
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(
