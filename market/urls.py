@@ -13,6 +13,7 @@ from market.views import (
     OrderViewSet,
     ReviewDetailAPIView,
     PaymentCallbackAPIView,
+    UserViewSet,
 )
 
 router = DefaultRouter()
@@ -42,6 +43,11 @@ urlpatterns = [
     path('mycart/items/', CartItemViewSet.as_view({'get': 'list'}), name='mycart_items'),
     path('mycart/items/<int:pk>/', CartItemViewSet.as_view({'patch': 'partial_update', 'delete': 'destroy'}), name='mycart_item_detail'),
     path('mycart/add_to_cart/<int:store_item_id>/', CartItemViewSet.as_view({'post': 'create'}), name='add_to_cart'),
+    # Admin API endpoints
+    path('admin/categories/', CategoryViewSet.as_view({'get': 'list', 'post': 'create'}), name='admin_categories'),
+    path('admin/categories/<int:pk>/', CategoryViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='admin_category_detail'),
+    path('admin/users/', UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='admin_users'),
+    path('admin/users/<int:pk>/', UserViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='admin_user_detail'),
 ]
 
 

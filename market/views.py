@@ -1,4 +1,5 @@
 import requests
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.exceptions import ValidationError
@@ -13,6 +14,7 @@ from rest_framework.generics import (
 )
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
+from account.serializers import UserSerializer
 from market.models import (
     Store,
     StoreAddress,
@@ -672,3 +674,15 @@ class DashboardViewSet(ViewSet):
             return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Rejected'}, status=status.HTTP_200_OK)
+
+
+class UserViewSet(ModelViewSet):
+    """Admin-only user management"""
+    queryset = get_user_model().objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = SmallPaginatioinSettings
+    filter_backends = [OrderingFilter, SearchFilter, DjangoFilterBackend]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['id', 'username', 'email', 'date_joined']
+    ordering = ['username']

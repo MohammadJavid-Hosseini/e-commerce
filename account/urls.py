@@ -11,7 +11,7 @@ urlpatterns = [
     path('request-otp/', views.RequestOTPAPIView.as_view(), name='request-otp'),
     path('verify-otp/', views.OTPLoginAPIView.as_view(), name='verify-otp'),
     path('register/', views.RegistrationAPIView.as_view(), name='register'),
-    path('refresh/', TokenRefreshView.as_view(), name='refresh'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='refresh'),
     path('logout/', views.LogoutAPIView.as_view(), name='logout'),
     path('_jwt_login/', TokenObtainPairView.as_view(), name='jwtlogin'),
     path(
