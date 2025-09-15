@@ -125,25 +125,26 @@ class ReviewSerializer(serializers.ModelSerializer,
         return self.to_string(fields, 'user')
 
 
+class ImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = ['id', 'product', 'image']
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
+    images = ImageSerializer(many=True)
     category = RecursiveCategorySerializer(read_only=True)
     reviews = ReviewSerializer(many=True, required=False, read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'category', 'is_active',
+            'id', 'name', 'description', 'category', 'images', 'is_active',
             'rating', 'best_seller', 'best_price', 'reviews'
         ]
         read_only_fields = [
-            'is_active', 'rating', 'best_seller', 'best_price', 'reviews'
+            'images', 'is_active', 'rating', 'best_seller', 'best_price', 'reviews'
         ]
-
-
-class ImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Image
-        fields = ['id', 'product', 'image']
 
 
 class ProductListSerializer(serializers.ModelSerializer,
