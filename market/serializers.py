@@ -1,9 +1,13 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from market.models import (
     Store, StoreAddress, Category, Image, Product, StoreItem, Cart,
     CartItem, Order, OrderItem, UserAddress, Review, Payment)
 from market.services.mixins import RepresentAsStringMixin
+from market.services.product_service import get_best_seller_item
 from market.tasks import send_order_creation_email
+
+User = get_user_model()
 
 
 class StoreAddressSerializer(serializers.ModelSerializer):
@@ -125,6 +129,28 @@ class ReviewSerializer(serializers.ModelSerializer,
         return self.to_string(fields, 'user')
 
 
+class SellerForProductSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField(source='store.name')
+    product = serializers.IntegerField(source='product.id')
+    price = serializers.CharField()
+    discount_price = serializers.CharField(allow_null=True)
+    stock = serializers.IntegerField()
+    detail_url = serializers.SerializerMethodField()
+    store = serializers.SerializerMethodField()
+
+    def get_detail_url(self, obj):
+        return f"/stores/{obj.store.id}/"
+
+    def get_store(self, obj):
+        return {
+            'id': obj.store.id,
+            'name': obj.store.name,
+            'seller': obj.store.seller.username,
+            'description': obj.store.description
+        }
+
+
 class ImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
@@ -132,53 +158,73 @@ class ImageSerializer(serializers.ModelSerializer):
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
-    images = ImageSerializer(many=True)
     category = RecursiveCategorySerializer(read_only=True)
     reviews = ReviewSerializer(many=True, required=False, read_only=True)
+    sellers = serializers.SerializerMethodField()
+    best_seller = serializers.SerializerMethodField()
+    images = ImageSerializer(many=True)
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'description', 'category', 'images', 'is_active',
-            'rating', 'best_seller', 'best_price', 'reviews'
+            'rating', 'best_seller', 'best_price', 'reviews', 'sellers'
         ]
         read_only_fields = [
-            'images', 'is_active', 'rating', 'best_seller', 'best_price', 'reviews'
+            'images', 'is_active', 'rating', 'best_seller', 'best_price', 'reviews', 'sellers'
         ]
 
+    def get_sellers(self, obj):
+        active_items = obj.items.filter(is_active=True).select_related('store', 'product', 'store__seller')
+        return SellerForProductSerializer(active_items, many=True).data
 
-class ProductListSerializer(serializers.ModelSerializer,
-                            RepresentAsStringMixin):
-    reviews = serializers.SerializerMethodField()
+    def get_best_seller(self, obj):
+        best_item = get_best_seller_item(obj)
+        if not best_item:
+            return None
+        return SellerForProductSerializer(best_item).data
+
+
+class ProductListSerializer(serializers.ModelSerializer):
     images = ImageSerializer(many=True)
+    rating = serializers.SerializerMethodField()
+    stock = serializers.SerializerMethodField()
+    best_price = serializers.SerializerMethodField()
+    best_seller = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category', 'reviews', 'images', 'is_active']
-        # HACK: is_active -> read_only
-        read_only_fields = ['id', 'reviews']
+        fields = ['id', 'name', 'description', 'category', 'images', 'is_active',
+                 'best_seller', 'rating', 'stock', 'best_price']
+        read_only_fields = ['id', 'best_seller', 'rating', 'stock', 'best_price']
 
-        ordering = ['name']
+    def get_rating(self, obj):
+        reviews = obj.reviews.all()
+        if reviews.exists():
+            avg_rating = sum(review.rating for review in reviews) / reviews.count()
+            return f"{avg_rating:.1f}"
+        return "0.0"
 
-    def get_reviews(self, obj):
-        return [str(review) for review in obj.reviews.all()][:4]
+    def get_stock(self, obj):
+        total_stock = sum(item.stock for item in obj.items.filter(is_active=True))
+        return str(total_stock)
 
-    def get_fields(self):
-        fields = super().get_fields()
-        self.to_string(fields, 'category')
-        return fields
+    def get_best_price(self, obj):
+        active_items = obj.items.filter(is_active=True)
+        if active_items.exists():
+            # final price = price - (discount or 0)
+            best = min(
+                (float(i.price) - float(i.discount_price or 0) for i in active_items),
+                default=None,
+            )
+            return best
+        return None
 
-    def create(self, validated_data):
-        images = validated_data.pop('images')
-        product = Product.objects.create(**validated_data)
-
-        for image in images:
-            serializer = ImageSerializer(image)
-            serializer.is_valid(raise_exception=True)
-            Image.objects.create(product=product, **serializer.validated_data)
-
-        product.save()
-        return product
+    def get_best_seller(self, obj):
+        best_item = get_best_seller_item(obj)
+        if not best_item:
+            return None
+        return SellerForProductSerializer(best_item).data
 
 
 class StoreItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
@@ -451,3 +497,16 @@ class PaymentSerializer(serializers.ModelSerializer):
             'id', 'order', 'amount', 'status',
             'reference_id', 'transaction_id', 'fee', 'card_pan']
         read_only_fields = ['id', 'order', 'amount', 'reference_id']
+
+
+# class SellerSerializer(serializers.ModelSerializer):
+#     name = serializers.CharField(source='username')
+#     store = StoreSerializer(many=True, read_only=True)
+#     product = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = User
+#         fields = ['id', 'name', 'stores', 'product']
+
+#     def get_product(self, obj):
+#         return obj.store.store_item.product

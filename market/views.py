@@ -208,7 +208,7 @@ class ProductViewSet(ModelViewSet,
         methods=['get', 'post'],
         permission_classes=[IsAuthenticated]
         )
-    def reviews(self, request, pk=None):
+    def review_list(self, request, pk=None):
         product = self.get_object()
 
         if request.method == 'GET':
@@ -686,3 +686,39 @@ class UserViewSet(ModelViewSet):
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['id', 'username', 'email', 'date_joined']
     ordering = ['username']
+
+
+class MyCartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cart, _ = Cart.objects.get_or_create(customer=request.user)
+        serializer = CartSerializer(cart)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MyCartItemsAPIView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = MiniCartItemSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        cart, _ = Cart.objects.get_or_create(customer=self.request.user)
+        return cart.items.select_related('store_item', 'store_item__store')
+
+
+class AddToCartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, store_item_id):
+        cart, _ = Cart.objects.get_or_create(customer=request.user)
+        store_item = StoreItem.objects.filter(id=store_item_id).first()
+        if not store_item:
+            return Response({'detail': 'Store item not found'}, status=status.HTTP_404_NOT_FOUND)
+        if cart.items.filter(store_item=store_item).exists():
+            return Response(
+                {"detail": "The item is already in the cart; just update it."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        CartItem.objects.create(cart=cart, store_item=store_item, quantity=1)
+        return Response({"detail": "Added to cart"}, status=status.HTTP_201_CREATED)

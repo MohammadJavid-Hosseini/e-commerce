@@ -177,9 +177,9 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     # HACK: just to make authentication easier, fix it later
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    # 'BLACKLIST_AFTER_ROTATION': True,
-    # 'ROTATE_REFRESH_TOKENS': True
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': True
 }
 
 # Redis settings

@@ -14,6 +14,9 @@ from market.views import (
     ReviewDetailAPIView,
     PaymentCallbackAPIView,
     UserViewSet,
+    MyCartAPIView,
+    MyCartItemsAPIView,
+    AddToCartAPIView,
 )
 
 router = DefaultRouter()
@@ -38,11 +41,11 @@ urlpatterns = [
     path('mystore/items/<int:pk>/', StoreItemViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='mystore_item_detail'),
     path('mystore/orderitems/', DashboardViewSet.as_view({'get': 'orderitems'}), name='mystore_orderitems'),
     path('mystore/orderitems/<int:pk>/', DashboardViewSet.as_view({'get': 'orderitems'}), name='mystore_orderitem_detail'),
-    # Cart endpoints
-    path('mycart/', CartViewSet.as_view({'get': 'list'}), name='mycart'),
-    path('mycart/items/', CartItemViewSet.as_view({'get': 'list'}), name='mycart_items'),
+    # Cart endpoints (FE expectations)
+    path('mycart/', MyCartAPIView.as_view(), name='mycart'),
+    path('mycart/items/', MyCartItemsAPIView.as_view(), name='mycart_items'),
     path('mycart/items/<int:pk>/', CartItemViewSet.as_view({'patch': 'partial_update', 'delete': 'destroy'}), name='mycart_item_detail'),
-    path('mycart/add_to_cart/<int:store_item_id>/', CartItemViewSet.as_view({'post': 'create'}), name='add_to_cart'),
+    path('mycart/add_to_cart/<int:store_item_id>/', AddToCartAPIView.as_view(), name='add_to_cart'),
     # Admin API endpoints
     path('admin/categories/', CategoryViewSet.as_view({'get': 'list', 'post': 'create'}), name='admin_categories'),
     path('admin/categories/<int:pk>/', CategoryViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='admin_category_detail'),
