@@ -9,6 +9,14 @@ from market.tasks import send_order_creation_email
 
 User = get_user_model()
 
+class StoreCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(required=True)
+    description = serializers.CharField(required=True)
+
+    def validate_name(self, value):
+        if Store.objects.filter(name=value).exists():
+            raise serializers.ValidationError("Store with this name already exists")
+        return value
 
 class StoreAddressSerializer(serializers.ModelSerializer):
     store = serializers.SerializerMethodField()
@@ -385,9 +393,9 @@ class CartSerializer(serializers.ModelSerializer, RepresentAsStringMixin):
 
         return instance
 
-    def get_fields(self):
-        fields = super().get_fields()
-        return self.to_string(fields, 'customer')
+    # def get_fields(self):
+    #     fields = super().get_fields()
+    #     return self.to_string(fields, 'customer')
 
 
 class OrderItemSerializer(serializers.ModelSerializer, RepresentAsStringMixin):

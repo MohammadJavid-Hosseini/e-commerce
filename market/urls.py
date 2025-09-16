@@ -20,14 +20,14 @@ from market.views import (
 )
 
 router = DefaultRouter()
-router.register('stores', StoreViewSet, 'store')
+router.register('mystore', StoreViewSet, 'mystore')
 router.register('categories', CategoryViewSet, 'category')
 router.register('products', ProductViewSet, 'product')
 router.register('store_items', StoreItemViewSet, 'store_item')
 router.register('carts', CartViewSet, 'cart')
 router.register('cart_items', CartItemViewSet, 'cart_item')
 router.register('orders', OrderViewSet, 'order')
-router.register('mystore', DashboardViewSet, 'dashboard')
+# router.register('mystore', DashboardViewSet, 'dashboard')
 router.register('images', ImageViewSet, 'image')
 
 urlpatterns = [

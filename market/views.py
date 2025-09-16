@@ -10,7 +10,8 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
 from rest_framework.generics import (
     ListAPIView,
-    RetrieveUpdateDestroyAPIView
+    RetrieveUpdateDestroyAPIView,
+    CreateAPIView,
 )
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
@@ -50,6 +51,7 @@ from market.serializers import (
     MiniCartItemSerializer,
     OrderSerializer,
     ReviewSerializer,
+    StoreCreateSerializer,
     )
 from market.permissions import (
     IsStoreOwner,
@@ -80,7 +82,18 @@ from market.custom_exceptions import (
     PaymentNotFoundError,
     PaymentVerificationError
 )
+class StoreCreateAPIView(CreateAPIView):
+    serializer_class = StoreCreateSerializer
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request, *args, **kwargs):
+        serializer = StoreCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        Store.objects.create(**serializer.validated_data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
 
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
@@ -206,9 +219,9 @@ class ProductViewSet(ModelViewSet,
     @action(
         detail=True,
         methods=['get', 'post'],
-        permission_classes=[IsAuthenticated]
+        permission_classes=[AllowAny]
         )
-    def review_list(self, request, pk=None):
+    def reviews(self, request, pk=None):
         product = self.get_object()
 
         if request.method == 'GET':
@@ -219,19 +232,22 @@ class ProductViewSet(ModelViewSet,
                 instance=reviews, many=True, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        if request.method == 'POST':
-            serializer = ReviewSerializer(
-                data=request.data,
-                context={'request': request, 'product': product}
-                )
+        # POST: require authentication explicitly
+        if not request.user or not request.user.is_authenticated:
+            return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-            serializer.is_valid(raise_exception=True)
-
-            Review.objects.create(
-                user=request.user, product=product, **serializer.validated_data
+        serializer = ReviewSerializer(
+            data=request.data,
+            context={'request': request, 'product': product}
             )
-            return Response(
-                {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
+
+        serializer.is_valid(raise_exception=True)
+
+        Review.objects.create(
+            user=request.user, product=product, **serializer.validated_data
+        )
+        return Response(
+            {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
 
 
 class ImageViewSet(ModelViewSet):
