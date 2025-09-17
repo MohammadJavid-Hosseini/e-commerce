@@ -89,7 +89,7 @@ class OTPAuthenticationTests(APITestCase):
         )
 
     def login_with_otp(self, otp='123456', phone=None):
-        url = reverse('login')
+        url = reverse('verify-otp')
         payload = {"phone": phone or self.phone, "otp": otp}
         return self.client.post(
             path=url, data=payload, format='json'
@@ -97,7 +97,7 @@ class OTPAuthenticationTests(APITestCase):
 
     @patch("account.views.set_otp")
     def test_request_otp(self, mock_setex):
-        url = reverse('get_otp')
+        url = reverse('request-otp')
         res = self.client.post(
             path=url, data={'phone': self.phone}, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)

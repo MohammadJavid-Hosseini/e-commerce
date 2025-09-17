@@ -11,7 +11,7 @@ class UserAdmin(admin.ModelAdmin):
         'username', 'phone', 'is_seller',
         'created_at', 'last_login', 'picture']
     search_fields = ['username', 'phone', 'email']
-    list_filter = ['is_seller']
+    list_filter = ['is_seller', 'is_staff']
 
 
 @admin.register(UserAddress)

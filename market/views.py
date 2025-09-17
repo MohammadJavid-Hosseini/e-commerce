@@ -1,4 +1,5 @@
 import requests
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.exceptions import ValidationError
@@ -9,10 +10,12 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import APIView
 from rest_framework.generics import (
     ListAPIView,
-    RetrieveUpdateDestroyAPIView
+    RetrieveUpdateDestroyAPIView,
+    CreateAPIView,
 )
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
+from account.serializers import UserSerializer
 from market.models import (
     Store,
     StoreAddress,
@@ -48,6 +51,7 @@ from market.serializers import (
     MiniCartItemSerializer,
     OrderSerializer,
     ReviewSerializer,
+    StoreCreateSerializer,
     )
 from market.permissions import (
     IsStoreOwner,
@@ -78,7 +82,18 @@ from market.custom_exceptions import (
     PaymentNotFoundError,
     PaymentVerificationError
 )
+class StoreCreateAPIView(CreateAPIView):
+    serializer_class = StoreCreateSerializer
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request, *args, **kwargs):
+        serializer = StoreCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        Store.objects.create(**serializer.validated_data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
 
 class StoreViewSet(ModelViewSet):
     serializer_class = StoreSerializer
@@ -95,17 +110,12 @@ class StoreViewSet(ModelViewSet):
         return [IsSeller()] if self.action == 'create' else [IsStoreOwner()]
 
     def get_queryset(self):
-        # let everyone see the list of stores and details
-        if self.action in ['list', 'retrieve']:
-            return Store.objects.select_related('seller', 'address').all()
-        # only store-owners can modify the store data
-        else:
-            return Store.objects.filter(seller=self.request.user)
+        user = self.request.user
+        qs = Store.objects.select_related('seller', 'address')
+        return qs.all() if user.is_staff else qs.filter(seller=user)
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
-
-    # OPTIMIZE: make dashboard/stores/ to show stores to sellers;
 
 
 class StoreAddressListAPI(ListAPIView):
@@ -209,7 +219,7 @@ class ProductViewSet(ModelViewSet,
     @action(
         detail=True,
         methods=['get', 'post'],
-        permission_classes=[IsAuthenticated]
+        permission_classes=[AllowAny]
         )
     def reviews(self, request, pk=None):
         product = self.get_object()
@@ -222,19 +232,22 @@ class ProductViewSet(ModelViewSet,
                 instance=reviews, many=True, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        if request.method == 'POST':
-            serializer = ReviewSerializer(
-                data=request.data,
-                context={'request': request, 'product': product}
-                )
+        # POST: require authentication explicitly
+        if not request.user or not request.user.is_authenticated:
+            return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-            serializer.is_valid(raise_exception=True)
-
-            Review.objects.create(
-                user=request.user, product=product, **serializer.validated_data
+        serializer = ReviewSerializer(
+            data=request.data,
+            context={'request': request, 'product': product}
             )
-            return Response(
-                {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
+
+        serializer.is_valid(raise_exception=True)
+
+        Review.objects.create(
+            user=request.user, product=product, **serializer.validated_data
+        )
+        return Response(
+            {'detail': 'review added.'}, status=status.HTTP_201_CREATED)
 
 
 class ImageViewSet(ModelViewSet):
@@ -577,6 +590,7 @@ class ReviewDetailAPIView(RetrieveUpdateDestroyAPIView):
 class DashboardViewSet(ViewSet):
     """A controlling manager for all seller stuff"""
     permission_classes = [IsSeller]
+    pagination_class = SmallPaginatioinSettings
 
     @action(detail=False, methods=['get'])
     def review(self, request):
@@ -608,7 +622,7 @@ class DashboardViewSet(ViewSet):
         return Response({'Stores': stores}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
-    def order_items(self, request):
+    def orderitems(self, request):
         """show status-based categories of order items per store"""
 
         # fetch stores
@@ -676,3 +690,51 @@ class DashboardViewSet(ViewSet):
             return Response({'detail': str(e)}, status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Rejected'}, status=status.HTTP_200_OK)
+
+
+class UserViewSet(ModelViewSet):
+    """Admin-only user management"""
+    queryset = get_user_model().objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = SmallPaginatioinSettings
+    filter_backends = [OrderingFilter, SearchFilter, DjangoFilterBackend]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['id', 'username', 'email', 'date_joined']
+    ordering = ['username']
+
+
+class MyCartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cart, _ = Cart.objects.get_or_create(customer=request.user)
+        serializer = CartSerializer(cart)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MyCartItemsAPIView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = MiniCartItemSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        cart, _ = Cart.objects.get_or_create(customer=self.request.user)
+        return cart.items.select_related('store_item', 'store_item__store')
+
+
+class AddToCartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, store_item_id):
+        cart, _ = Cart.objects.get_or_create(customer=request.user)
+        store_item = StoreItem.objects.filter(id=store_item_id).first()
+        if not store_item:
+            return Response({'detail': 'Store item not found'}, status=status.HTTP_404_NOT_FOUND)
+        if cart.items.filter(store_item=store_item).exists():
+            return Response(
+                {"detail": "The item is already in the cart; just update it."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        CartItem.objects.create(cart=cart, store_item=store_item, quantity=1)
+        return Response({"detail": "Added to cart"}, status=status.HTTP_201_CREATED)

@@ -2,21 +2,25 @@ from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenObtainPairView, TokenRefreshView)
 from account import views
+from market.views import StoreCreateAPIView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register('address', views.UserAddressViewSet, 'address')
+router.register('myuser/address', views.UserAddressViewSet, 'address')
 
 urlpatterns = [
-    path('get_otp/', views.RequestOTPAPIView.as_view(), name='get_otp'),
+    path('request-otp/', views.RequestOTPAPIView.as_view(), name='request-otp'),
+    path('verify-otp/', views.OTPLoginAPIView.as_view(), name='verify-otp'),
     path('register/', views.RegistrationAPIView.as_view(), name='register'),
-    path('refresh/', TokenRefreshView.as_view(), name='refresh'),
-    path('login/', views.OTPLoginAPIView.as_view(), name='login'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='refresh'),
     path('logout/', views.LogoutAPIView.as_view(), name='logout'),
     path('_jwt_login/', TokenObtainPairView.as_view(), name='jwtlogin'),
     path(
-        'profile/', views.CustomerProfileDetailAPIView.as_view(),
-        name='customer-profile')
+        'myuser/', views.CustomerProfileDetailAPIView.as_view(),
+        name='customer-profile'),
+    path(
+        'myuser/register_as_seller/', StoreCreateAPIView.as_view(),
+        name='seller_registration'),
 ]
 
 
