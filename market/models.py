@@ -5,8 +5,7 @@ from account.models import UserAddress
 from market.services.product_service import (
     calculate_average_rating,
     calculate_best_price,
-    get_best_seller,
-    get_best_seller_user
+    get_best_seller_item,
 )
 
 
@@ -99,11 +98,9 @@ class Product(TimeStampedModel, SoftDeleteModel):
 
     @property
     def best_seller(self):
-        return get_best_seller(self)
-
-    @property
-    def best_seller_user(self):
-        return get_best_seller_user(self)
+        item = get_best_seller_item(self)
+        # Keep backward-compatible behavior: return store name string if present
+        return item.store.name if item else None
 
 
 class Image(TimeStampedModel, SoftDeleteModel):

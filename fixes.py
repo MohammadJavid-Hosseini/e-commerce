@@ -16,3 +16,6 @@
 #           cofirmation/reject, only by the seller. stock checking happens \
 #           here, yet seller can reject it manually for other reasons
 #        2. Order view: single and mass confirmation for admin.
+
+
+# FIXME: 1. create a Seller object; best_seller in ProductList API expects an object of Seller.

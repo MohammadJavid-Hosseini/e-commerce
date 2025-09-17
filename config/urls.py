@@ -37,10 +37,16 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("__debug__/", include("debug_toolbar.urls")),
-    path('api/account/', include('account.urls')),
-    path('api/market/', include('market.urls')),
-    path('swagger/', schema_view.with_ui(), name='schema-swagger-ui')
+    path('api/accounts/', include('account.urls')),
+    path('api/', include('account.urls')),
+    path('api/', include('market.urls')),
 ]
+
+# Serve swagger UI only in debug
+if settings.DEBUG:
+    urlpatterns += [
+        path('swagger/', schema_view.with_ui(), name='schema-swagger-ui')
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(
