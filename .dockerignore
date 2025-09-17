@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+
+.venv/
+env/
+venv/
+
+.git
+.gitignore
+
+docker-compose.yml
+
+.env
+
+*/migrations/
+
+*.log
+
+# Celery Beat files
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+celerybeat-schedule
+celerybeat-schedule.*
+*.celerybeat-schedule

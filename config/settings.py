@@ -9,9 +9,12 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
+import uuid
 from pathlib import Path
-from decouple import config
+from decouple import config, Csv
+from datetime import timedelta
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,7 +29,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
 
 
 # Application definition
@@ -38,10 +41,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_filters',
+    'django_extensions',
+    'drf_yasg',
+    'corsheaders',  # for handling ports connection with front
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'debug_toolbar',
+    'base',
+    'account',
+    'market',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -81,7 +96,7 @@ DATABASES = {
         "NAME": config("DB_NAME"),
         "USER": config("DB_USER"),
         "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
+        "HOST": config("DB_HOST", default="db"),
         "PORT": config("DB_PORT", default="5432"),
     }
 }
@@ -121,9 +136,101 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+
+# Set the media and static urls
+STATIC_URL = '/static/'
+STATIC_ROOT = '/shared/static/'
+MEDIA_URL = "/media/"
+MEDIA_ROOT = '/shared/media/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Set the costumized user as user auth model
+AUTH_USER_MODEL = 'account.User'
+
+# Set the backends for authentication
+AUTHENTICATION_BACKENDS = [
+    "account.backends.PhoneEmailAuthBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_FILTERING_BACKENDS': (
+        'rest_framework.filters.OrderingFilter',
+    ),
+    'DEFAULT_PAGINATION_BACKENDS': (
+        'rest_framework.pagination.PageNumberPagination',
+    ),
+    'COERCE_DECIMAL_TO_STRING': False,
+}
+
+# Set simplejwt config
+
+SIMPLE_JWT = {
+    # HACK: just to make authentication easier, fix it later
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    # 'BLACKLIST_AFTER_ROTATION': True,
+    # 'ROTATE_REFRESH_TOKENS': True
+}
+
+# Redis settings
+REDIS_HOST = config('REDIS_HOST', 'redis')
+REDIS_PORT = config('REDIS_PORT', 6379)
+
+# Setup redis for caching
+CACHES = {
+    'default': {
+        'BACKEND': "django_redis.cache.RedisCache",
+        'LOCATION': f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
+        }
+    }
+
+# celery settings
+CELERY_BROKER_URL = F'redis://{REDIS_HOST}:{REDIS_PORT}/2'
+
+# email setting
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
+# payment gateway config
+PAYMENT_REQUEST_GATEWAY = config('PAYMENT_REQUEST_GATEWAY')
+PAYMENT_GATEWAY = config('PAYMENT_GATEWAY')
+PAYMENT_VERIFY_GATEWAY = config('PAYMENT_VERIFY_GATEWAY')
+DESCRIPTION = "AsanForush E-commerce"
+CURRENCY = 'IRR'
+CALLBACK_URL = '/api/market/payment/verify/'
+# NOTE: for production, you need to buy it from Zarinpal
+# MERCHANT_ID = config('MERCHANT_ID')
+# NOTE: for test
+# HACK: once you bought a Zarinpal plan, change this to real merchant_id
+M_ID = str(uuid.uuid4())
+MERCHANT_ID = 'S'+M_ID[1:]
+
+# set corsheaders config; for connecting to frontend (ports resolvation)
+CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://*']
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True  # For cookies/sessions
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'authorization',
+    'content-type',
+    'x-csrftoken',
+]
